@@ -1,0 +1,57 @@
+name: Deploy recall site
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+concurrency:
+  group: recall-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Wrangler auth
+        env:
+          CLOUDFLARE_API_TOKEN_SECRET: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_WRANGLER_CONFIG: ${{ secrets.CLOUDFLARE_WRANGLER_CONFIG }}
+        run: |
+          TOKEN="$CLOUDFLARE_API_TOKEN_SECRET"
+
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$(printf '%s\n' "$CLOUDFLARE_WRANGLER_CONFIG" | sed -nE "s/^[[:space:]]*(api_token|token)[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*$/\2/p" | head -n 1)"
+          fi
+
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$(printf '%s\n' "$CLOUDFLARE_WRANGLER_CONFIG" | sed -nE "s/^[[:space:]]*CLOUDFLARE_API_TOKEN[[:space:]=:]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\1/p" | head -n 1)"
+          fi
+
+          if [ -z "$TOKEN" ]; then
+            echo "Missing CLOUDFLARE_API_TOKEN secret, and no api_token entry was found in CLOUDFLARE_WRANGLER_CONFIG." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$TOKEN"
+          echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Deploy preview
+        if: github.ref_name != 'main'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ce40c57a207aaaa76ae172d63447828d
+        run: npx wrangler@4.85.0 pages deploy docs --project-name=recall --branch="${{ github.ref_name }}"
+
+      - name: Deploy production
+        if: github.ref_name == 'main'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ce40c57a207aaaa76ae172d63447828d
+        run: npx wrangler@4.85.0 pages deploy docs --project-name=recall --branch=main

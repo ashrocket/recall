@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="recall cloud — versioned session storage for AI coding agents. From $3/year. No setup beyond an API key.">
+  <title>recall cloud | git for agent sessions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fef9f2;
+      --bg2: #fef3e6;
+      --surface: #ffffff;
+      --surface-warm: #fffaf4;
+      --border: #f0ddd0;
+      --border-strong: #e0c8b0;
+      --text: #3d2416;
+      --text-muted: #9a7a68;
+      --text-light: #c4a898;
+      --text-bright: #1a0800;
+      --pink: #f9c0d8;
+      --pink-deep: #d6638a;
+      --lav: #d4c4f4;
+      --lav-deep: #8b6ed4;
+      --mint: #b4e8d0;
+      --mint-deep: #3a9e78;
+      --accent: #e07454;
+      --red-pen: #c0392b;
+      --sticky-yellow: #fff7b3;
+      --sticky-blue: #d8efff;
+      --sticky-pink: #ffd9eb;
+      --sticky-mint: #d7f3e8;
+      --sticky-shadow: rgba(0, 0, 0, 0.08);
+      --desk: #f3dfc7;
+      --manila: #f3e0b8;
+      --manila-deep: #e0c68d;
+      --cork: #e7c597;
+      --shadow-soft: 0 18px 40px rgba(61, 36, 22, 0.08);
+      --shadow-paper: 0 12px 24px rgba(61, 36, 22, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Plus Jakarta Sans", sans-serif;
+      line-height: 1.65;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(249, 192, 216, 0.18), transparent 26%),
+        radial-gradient(circle at 90% 12%, rgba(212, 196, 244, 0.14), transparent 28%),
+        radial-gradient(circle at 18% 82%, rgba(180, 232, 208, 0.15), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 40%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23d8c1af' fill-opacity='0.14'%3E%3Ccircle cx='20' cy='24' r='1.2'/%3E%3Ccircle cx='82' cy='44' r='1'/%3E%3Ccircle cx='136' cy='30' r='1.2'/%3E%3Ccircle cx='46' cy='118' r='1.2'/%3E%3Ccircle cx='114' cy='92' r='1.1'/%3E%3Ccircle cx='148' cy='132' r='1.4'/%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    main {
+      padding: 100px 0 64px;
+    }
+
+    /* ── family nav ── */
+    .family-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 24px;
+      background: rgba(254, 249, 242, 0.9);
+      border-bottom: 1px solid rgba(224, 200, 176, 0.8);
+      backdrop-filter: blur(10px);
+    }
+
+    .family-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .family-links::-webkit-scrollbar {
+      display: none;
+    }
+
+    .family-link,
+    .family-github {
+      position: relative;
+      flex: 0 0 auto;
+      text-decoration: none;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 7px 10px;
+      border-radius: 999px;
+      transition: color 0.18s ease, background 0.18s ease;
+    }
+
+    .family-link:hover,
+    .family-github:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .family-link.current {
+      color: var(--text-bright);
+      font-weight: 700;
+    }
+
+    .family-link.current::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .family-sep {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+
+    .family-ext {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .family-ext:hover {
+      opacity: 1;
+    }
+
+    .family-block {
+      margin-top: 48px;
+      padding: 32px 0 24px;
+      border-top: 1px dashed var(--border-strong);
+    }
+
+    .family-block-header { margin-bottom: 20px; }
+
+    .family-block-header h3 {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+
+    .family-block-header p { font-size: 15px; color: var(--text-muted); }
+
+    .family-block-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .family-block-card {
+      display: block;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-warm);
+      text-decoration: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .family-block-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(224, 116, 84, 0.1);
+    }
+
+    .family-block-card strong {
+      display: block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .family-block-card span { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+    @media (max-width: 700px) {
+      .family-block-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── layout ── */
+    .wrap {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .section {
+      margin-bottom: 34px;
+    }
+
+    .section-shell {
+      position: relative;
+      padding: 34px 0;
+    }
+
+    .section-kicker {
+      margin-bottom: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-light);
+    }
+
+    .section-title {
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--text-bright);
+      margin-bottom: 10px;
+    }
+
+    .section-intro {
+      max-width: 650px;
+      font-size: 17px;
+      color: var(--text-muted);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .annotation {
+      font-family: "Caveat", cursive;
+      font-size: 32px;
+      color: var(--red-pen);
+      transform: rotate(-1.5deg);
+      text-align: right;
+      flex: 0 0 auto;
+    }
+
+    /* ── hero ── */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+      gap: 28px;
+      align-items: start;
+      padding-top: 18px;
+    }
+
+    .hero-copy {
+      position: relative;
+      padding: 34px 8px 18px 0;
+    }
+
+    .hero-title {
+      max-width: 620px;
+      font-size: clamp(46px, 8vw, 78px);
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+      color: var(--text-bright);
+      margin-bottom: 24px;
+    }
+
+    .hero-title .circled {
+      position: relative;
+      display: inline-block;
+      padding: 0 8px 6px;
+    }
+
+    .hero-title .circled svg {
+      position: absolute;
+      left: -6px;
+      top: 6px;
+      width: calc(100% + 12px);
+      height: 72px;
+      pointer-events: none;
+    }
+
+    .hero-note {
+      margin-top: 14px;
+      font-family: "Caveat", cursive;
+      font-size: 30px;
+      color: var(--red-pen);
+      transform: rotate(-2deg);
+    }
+
+    .hero-badge {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 26px;
+    }
+
+    .badge-pill {
+      padding: 10px 18px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+    }
+
+    .hero-right {
+      position: relative;
+      padding-top: 14px;
+    }
+
+    /* ── sticky notes ── */
+    .sticky-note {
+      position: relative;
+      padding: 22px 22px 26px;
+      border: 1px solid rgba(190, 170, 94, 0.5);
+      border-radius: 3px;
+      box-shadow: 0 16px 28px var(--sticky-shadow);
+      color: #4c3b1f;
+      transform: rotate(-2deg);
+    }
+
+    .sticky-note::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      border-width: 0 0 18px 18px;
+      border-style: solid;
+      border-color: transparent transparent rgba(0, 0, 0, 0.08) transparent;
+      filter: brightness(1.04);
+    }
+
+    .sticky-yellow { background: var(--sticky-yellow); }
+    .sticky-pink   { background: var(--sticky-pink); border-color: rgba(214, 99, 138, 0.35); }
+    .sticky-blue   { background: var(--sticky-blue); border-color: rgba(90, 140, 176, 0.35); }
+    .sticky-mint   { background: var(--sticky-mint); border-color: rgba(58, 158, 120, 0.34); }
+
+    .sticky-note h3 {
+      font-size: 21px;
+      line-height: 1.15;
+      margin-bottom: 8px;
+      color: #2d190d;
+    }
+
+    .sticky-note p,
+    .sticky-note li {
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .sticky-note ul {
+      padding-left: 18px;
+      margin-top: 10px;
+    }
+
+    .sticky-note .scribble {
+      margin-top: 12px;
+      font-family: "Caveat", cursive;
+      font-size: 26px;
+      color: var(--red-pen);
+    }
+
+    .hero-stack {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+      justify-items: end;
+    }
+
+    .pin {
+      position: absolute;
+      top: 10px;
+      right: 16px;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: rgba(110, 66, 35, 0.72);
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.3) inset;
+    }
+
+    /* ── folder track (steps) ── */
+    .folder-track {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      margin-top: 28px;
+      padding-top: 18px;
+    }
+
+    .folder-track::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 20px;
+      border-top: 2px dotted rgba(154, 122, 104, 0.5);
+      z-index: 0;
+    }
+
+    .folder {
+      position: relative;
+      z-index: 1;
+      padding: 30px 22px 20px;
+      border: 1px solid #d1b47f;
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18%),
+        var(--manila);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .folder::before {
+      content: attr(data-step);
+      position: absolute;
+      left: 16px;
+      top: -17px;
+      padding: 10px 16px 8px;
+      min-width: 90px;
+      border: 1px solid #d1b47f;
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+      background: var(--tab-bg);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .folder h3 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      color: var(--text-bright);
+    }
+
+    .folder p {
+      color: rgba(61, 36, 22, 0.82);
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+
+    /* ── terminal cards ── */
+    .terminal-card {
+      border: 1px solid rgba(224, 200, 176, 0.75);
+      border-radius: 14px;
+      background: rgba(255, 251, 245, 0.92);
+      overflow: hidden;
+    }
+
+    .terminal-label {
+      padding: 8px 14px;
+      border-bottom: 1px dashed rgba(154, 122, 104, 0.34);
+      background: rgba(255, 255, 255, 0.72);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-light);
+    }
+
+    .terminal-card pre {
+      padding: 14px 16px 16px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12.5px;
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    .cmd    { color: var(--text-bright); font-weight: 600; }
+    .accent { color: var(--accent); font-weight: 600; }
+    .muted  { color: var(--text-muted); }
+    .ok     { color: var(--mint-deep); font-weight: 600; }
+    .dim    { opacity: 0.55; }
+
+    /* ── corkboard (what you get) ── */
+    .corkboard {
+      margin-top: 28px;
+      padding: 30px 24px;
+      border-radius: 26px;
+      border: 1px solid rgba(163, 116, 63, 0.34);
+      background:
+        radial-gradient(circle at 18px 18px, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px) 0 0 / 26px 26px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.02)),
+        var(--cork);
+      box-shadow: inset 0 2px 16px rgba(122, 81, 41, 0.1), var(--shadow-soft);
+    }
+
+    .sticky-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sticky-grid .sticky-note:nth-child(1) { transform: rotate(-2deg); }
+    .sticky-grid .sticky-note:nth-child(2) { transform: rotate(1.2deg); }
+    .sticky-grid .sticky-note:nth-child(3) { transform: rotate(-0.8deg); }
+    .sticky-grid .sticky-note:nth-child(4) { transform: rotate(1.6deg); }
+
+    .tiny-term {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(76, 59, 31, 0.3);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      color: rgba(61, 36, 22, 0.88);
+    }
+
+    /* ── pricing card ── */
+    .pricing-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+      gap: 24px;
+      margin-top: 28px;
+      align-items: start;
+    }
+
+    .price-card {
+      position: relative;
+      padding: 34px 30px 30px;
+      border: 2px solid var(--border-strong);
+      border-radius: 24px;
+      background:
+        linear-gradient(90deg, transparent 0, transparent 19px, rgba(192, 57, 43, 0.22) 19px, rgba(192, 57, 43, 0.22) 21px, transparent 21px),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 25px, rgba(201, 186, 174, 0.46) 25px, rgba(201, 186, 174, 0.46) 26px),
+        var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+    }
+
+    .price-card::before {
+      content: "Pricing";
+      position: absolute;
+      top: -15px;
+      left: 24px;
+      padding: 8px 16px 6px;
+      border: 1px solid var(--border-strong);
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+      background: var(--lav);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--lav-deep);
+    }
+
+    .price-big {
+      font-size: clamp(52px, 8vw, 80px);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      color: var(--text-bright);
+    }
+
+    .price-period {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .price-detail {
+      margin-top: 18px;
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .price-detail strong {
+      color: var(--text);
+    }
+
+    .price-note {
+      margin-top: 14px;
+      font-family: "Caveat", cursive;
+      font-size: 24px;
+      color: var(--red-pen);
+      transform: rotate(-1deg);
+      display: inline-block;
+    }
+
+    .price-toggle {
+      display: flex;
+      gap: 0;
+      margin-bottom: 18px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      overflow: hidden;
+      width: fit-content;
+    }
+
+    .toggle-btn {
+      padding: 8px 18px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      background: rgba(224, 116, 84, 0.1);
+    }
+
+    /* ── economics table ── */
+    .econ-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 14px;
+    }
+
+    .econ-table th {
+      text-align: left;
+      padding: 10px 14px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      border-bottom: 2px solid var(--border);
+    }
+
+    .econ-table td {
+      padding: 12px 14px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .econ-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .econ-table td:first-child {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    /* ── checkout button ── */
+    .checkout-section {
+      margin-top: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .btn-checkout {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 28px;
+      border: none;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #fff;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(224, 116, 84, 0.38);
+      transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+      text-decoration: none;
+    }
+
+    .btn-checkout:hover {
+      background: #c85e40;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(224, 116, 84, 0.45);
+    }
+
+    .btn-checkout:active {
+      transform: translateY(0);
+    }
+
+    .checkout-label {
+      font-size: 13px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--text-muted);
+    }
+
+    /* ── post-checkout ── */
+    .post-checkout {
+      display: none;
+      margin-top: 28px;
+      position: relative;
+    }
+
+    .post-checkout-card {
+      position: relative;
+      padding: 30px 28px 26px;
+      border: 2px solid rgba(58, 158, 120, 0.4);
+      border-radius: 24px;
+      background:
+        linear-gradient(90deg, transparent 0, transparent 19px, rgba(58, 158, 120, 0.18) 19px, rgba(58, 158, 120, 0.18) 21px, transparent 21px),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 25px, rgba(180, 232, 208, 0.38) 25px, rgba(180, 232, 208, 0.38) 26px),
+        var(--surface-warm);
+      box-shadow: 0 0 0 6px rgba(58, 158, 120, 0.07), var(--shadow-paper);
+    }
+
+    .post-checkout-card::before {
+      content: "You're in";
+      position: absolute;
+      top: -15px;
+      left: 24px;
+      padding: 8px 16px 6px;
+      border: 1px solid rgba(58, 158, 120, 0.45);
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+      background: var(--mint);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mint-deep);
+    }
+
+    .post-checkout-card h3 {
+      font-size: 26px;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+    }
+
+    .post-checkout-card p {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    .api-key-display {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border: 1px dashed rgba(58, 158, 120, 0.45);
+      border-radius: 12px;
+      background: rgba(215, 243, 232, 0.5);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--mint-deep);
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    /* ── self-host CTA ── */
+    .selfhost-cta {
+      margin-top: 28px;
+      padding: 28px 28px 24px;
+      border: 1px solid var(--border-strong);
+      border-radius: 22px;
+      background: rgba(255, 251, 246, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .selfhost-cta p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 520px;
+    }
+
+    .selfhost-cta p strong {
+      color: var(--text);
+      display: block;
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 22px;
+      border: 2px solid var(--border-strong);
+      border-radius: 14px;
+      background: transparent;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+      background: rgba(224, 116, 84, 0.06);
+      color: var(--accent);
+    }
+
+    /* ── paper clip ── */
+    .paper-clip {
+      position: absolute;
+      top: -4px;
+      left: 16px;
+      width: 34px;
+      height: 72px;
+      border: 4px solid rgba(120, 100, 90, 0.5);
+      border-radius: 22px;
+      transform: rotate(-9deg);
+      z-index: 6;
+    }
+
+    .paper-clip::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 11px;
+      width: 14px;
+      height: 42px;
+      border: 4px solid rgba(120, 100, 90, 0.5);
+      border-radius: 18px;
+    }
+
+    /* ── footer ── */
+    .footer {
+      margin-top: 18px;
+      padding: 24px 0 16px;
+      border-top: 1px solid rgba(224, 200, 176, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .footer .paper-clip {
+      position: static;
+      width: 20px;
+      height: 42px;
+      border-width: 3px;
+      transform: rotate(12deg);
+      margin-right: 6px;
+    }
+
+    .footer .paper-clip::after {
+      left: 2px;
+      top: 6px;
+      width: 8px;
+      height: 24px;
+      border-width: 3px;
+    }
+
+    .footer-copy {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .footer-links a:hover {
+      color: var(--accent);
+    }
+
+    /* ── index area ── */
+    .index-area {
+      position: relative;
+      padding: 28px 0 10px;
+      overflow: hidden;
+    }
+
+    .index-area::before {
+      content: "";
+      position: absolute;
+      inset: 28px 0 0;
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 243, 230, 0.8));
+      border: 1px solid rgba(224, 200, 176, 0.45);
+      z-index: -2;
+    }
+
+    /* ── responsive ── */
+    @media (max-width: 1020px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-right {
+        max-width: 520px;
+      }
+
+      .sticky-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .folder-track,
+      .pricing-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .annotation {
+        text-align: left;
+      }
+
+      .folder-track::before {
+        display: none;
+      }
+    }
+
+    @media (max-width: 860px) {
+      main {
+        padding-top: 84px;
+      }
+
+      .wrap {
+        width: min(1120px, calc(100vw - 24px));
+      }
+
+      .family-nav {
+        padding: 0 12px;
+      }
+
+      .section-shell {
+        padding: 26px 0;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .annotation {
+        margin-top: 8px;
+      }
+
+      .sticky-grid .sticky-note,
+      .hero-note {
+        transform: none;
+      }
+
+      .hero-stack {
+        justify-items: start;
+      }
+
+      .selfhost-cta {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .family-nav {
+        justify-content: flex-start;
+      }
+
+      .family-github {
+        margin-left: auto;
+      }
+
+      .hero-title .circled svg {
+        top: 2px;
+        height: 58px;
+      }
+
+      .sticky-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-intro {
+        font-size: 16px;
+      }
+
+      .sticky-note,
+      .folder,
+      .price-card,
+      .post-checkout-card {
+        border-radius: 16px;
+      }
+
+      .footer {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── nav ── -->
+  <nav class="family-nav">
+    <div class="family-links" aria-label="recall">
+      <a class="family-link" href="index.html">recall</a>
+      <a class="family-link" href="examples.html">examples</a>
+      <a class="family-link" href="blog.html">blog</a>
+      <a class="family-link current" href="cloud.html">cloud</a>
+      <span class="family-sep" aria-hidden="true"></span>
+      <a class="family-link family-ext" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">agent-pb</a>
+      <a class="family-link family-ext" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">agent-look</a>
+    </div>
+    <a class="family-github" href="https://github.com/ashrocket/recall" target="_blank" rel="noreferrer">GitHub -&gt;</a>
+  </nav>
+
+  <main>
+    <div class="wrap">
+
+      <!-- ── hero ── -->
+      <section class="section section-shell hero">
+        <div class="hero-copy">
+          <div class="section-kicker">recall cloud</div>
+          <h1 class="hero-title">
+            <span class="circled">
+              Git
+              <svg viewBox="0 0 80 50" aria-hidden="true">
+                <ellipse cx="40" cy="26" rx="36" ry="18"
+                  stroke="#c0392b" stroke-width="2.5" fill="none"
+                  stroke-dasharray="8 3" transform="rotate(-2 40 26)"
+                  opacity="0.75"></ellipse>
+              </svg>
+            </span>
+            for agent sessions.
+          </h1>
+          <p class="section-intro">
+            Your session memory, versioned and synced to the cloud. Push after a run, pull on any machine. Works alongside the local filing cabinet — just adds a remote.
+          </p>
+          <div class="hero-badge">
+            <div class="badge-pill">10 GB storage</div>
+            <div class="badge-pill">from $3 / year</div>
+            <div class="badge-pill">auto-cancels if unused</div>
+          </div>
+          <div class="hero-note">like git remote, for your agent brain</div>
+        </div>
+
+        <div class="hero-right">
+          <aside class="sticky-note sticky-yellow">
+            <h3>What gets synced?</h3>
+            <ul>
+              <li>session summaries</li>
+              <li>restart prompts</li>
+              <li>failure SOPs</li>
+              <li>full version history</li>
+            </ul>
+            <div class="scribble">pull it on any machine.</div>
+          </aside>
+          <div class="hero-stack">
+            <aside class="sticky-note sticky-pink" style="max-width: 290px;">
+              <h3>Auto-cancels</h3>
+              <p>No sessions pushed in 90 days? Subscription pauses itself. No chasing support.</p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── pricing ── -->
+      <section class="section section-shell">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Pricing</div>
+            <h2 class="section-title">Dead simple.</h2>
+            <p class="section-intro">One tier, two billing options. Pick quarterly or save with yearly.</p>
+          </div>
+          <div class="annotation">no surprise bills</div>
+        </div>
+
+        <div class="pricing-layout">
+          <div class="price-card">
+            <div class="price-toggle">
+              <button class="toggle-btn active" data-plan="quarterly">Quarterly</button>
+              <button class="toggle-btn" data-plan="yearly">Yearly <span style="font-size:11px;opacity:0.7">save 33%</span></button>
+            </div>
+            <div class="price-big" id="price-display">$1.50</div>
+            <div class="price-period" id="price-period">/quarter &nbsp;·&nbsp; $0.50/month</div>
+            <div class="price-detail">
+              <strong>Auto-cancels</strong> if you stop pushing sessions.<br>
+              No storage overage fees up to 10 GB.<br>
+              Cancel any time — data export included.
+            </div>
+            <div class="price-note">cheaper than a coffee you forgot to drink</div>
+
+            <div class="checkout-section" id="checkout-section">
+              <button class="btn-checkout" id="checkout-btn" type="button" data-plan="quarterly">
+                Subscribe — $1.50/quarter
+              </button>
+              <span class="checkout-label">Powered by Stripe · cancel any time</span>
+            </div>
+
+            <!-- post-checkout: hidden until Stripe confirms payment -->
+            <div class="post-checkout" id="post-checkout">
+              <div class="post-checkout-card">
+                <h3>You're subscribed.</h3>
+                <p>Your API key is below. Add it to your config and push your first session.</p>
+                <div class="api-key-display" id="api-key-display">
+                  arc_live_xxxx_REPLACE_AFTER_CHECKOUT
+                </div>
+                <div class="terminal-card">
+                  <div class="terminal-label">setup</div>
+                  <pre><span class="comment"># add to ~/.claude/settings.json or export in shell</span>
+<span class="cmd">export RECALL_API_KEY="arc_live_xxxx_..."</span>
+
+<span class="comment"># push your first session</span>
+<span class="cmd">$ /recall push</span>
+<span class="ok">pushed</span>  session/2026-03-30-payroll-fix  →  cloud</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside>
+            <div class="sticky-note sticky-mint" style="transform: rotate(1.2deg);">
+              <span class="pin" aria-hidden="true"></span>
+              <h3>The economics</h3>
+              <table class="econ-table">
+                <thead>
+                  <tr>
+                    <th>you pay</th>
+                    <th>costs us</th>
+                    <th>you get</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>$1.50/qtr</td>
+                    <td>~$0.80<br><span style="font-size:11px;color:var(--text-muted)">(Stripe + R2)</span></td>
+                    <td>10 GB versioned storage</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="scribble">keeps the lights on</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ── how it works ── -->
+      <section class="section section-shell">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">How It Works</div>
+            <h2 class="section-title">Pay. Key. Push.</h2>
+            <p class="section-intro">Three steps. The only ongoing step is the last one — and it's one command.</p>
+          </div>
+          <div class="annotation">done in under two minutes</div>
+        </div>
+
+        <div class="folder-track">
+          <article class="folder" data-step="1. Pay" style="--tab-bg: var(--lav);">
+            <h3>Pay</h3>
+            <p>Click Subscribe. Stripe handles the card. $1.50 billed quarterly — auto-cancels if you go quiet.</p>
+            <div class="terminal-card">
+              <div class="terminal-label">stripe checkout</div>
+              <pre><span class="ok">payment confirmed</span>
+receipt → your email
+subscription active</pre>
+            </div>
+          </article>
+
+          <article class="folder" data-step="2. Key" style="--tab-bg: var(--pink);">
+            <h3>Paste API key</h3>
+            <p>After checkout, your API key appears on this page. One export and you're configured.</p>
+            <div class="terminal-card">
+              <div class="terminal-label">configure</div>
+              <pre><span class="cmd">export RECALL_API_KEY=\</span>
+<span class="dim">  "arc_live_xxxx_..."</span>
+
+<span class="muted"># or put it in settings.json</span></pre>
+            </div>
+          </article>
+
+          <article class="folder" data-step="3. Push" style="--tab-bg: var(--mint);">
+            <h3>Push</h3>
+            <p>Run <code>/recall push</code> after any session. Pull from anywhere with <code>/recall pull</code>.</p>
+            <div class="terminal-card">
+              <div class="terminal-label">sync</div>
+              <pre><span class="cmd">$ /recall push</span>
+<span class="ok">pushed</span>  payroll-fix  →  cloud
+
+<span class="cmd">$ /recall pull</span>
+<span class="ok">pulled</span>  3 sessions  ←  cloud</pre>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── what you get ── -->
+      <section class="section section-shell">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">What You Get</div>
+            <h2 class="section-title">Everything in the filing cabinet, plus a remote.</h2>
+          </div>
+          <div class="annotation">no lock-in, just backup</div>
+        </div>
+
+        <div class="corkboard">
+          <div class="sticky-grid">
+            <article class="sticky-note sticky-yellow">
+              <span class="pin" aria-hidden="true"></span>
+              <h3>10 GB storage</h3>
+              <p>Session summaries are tiny. You'd need thousands before you got close to the limit.</p>
+              <div class="tiny-term">R2 object storage · Cloudflare edge</div>
+            </article>
+
+            <article class="sticky-note sticky-pink">
+              <span class="pin" aria-hidden="true"></span>
+              <h3>Version history</h3>
+              <p>Every push is a new version. Roll back to any prior state of any session.</p>
+              <div class="tiny-term">$ /recall history --session payroll-fix</div>
+            </article>
+
+            <article class="sticky-note sticky-blue">
+              <span class="pin" aria-hidden="true"></span>
+              <h3>Rate limits</h3>
+              <ul>
+                <li>100 pushes/day</li>
+                <li>500 pulls/day</li>
+                <li>burst-friendly</li>
+              </ul>
+              <div class="tiny-term">high enough to never notice</div>
+            </article>
+
+            <article class="sticky-note sticky-mint">
+              <span class="pin" aria-hidden="true"></span>
+              <h3>Export any time</h3>
+              <p>One command dumps everything to local JSON. Your data is yours.</p>
+              <div class="tiny-term">$ /recall export --format json</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── self-host CTA ── -->
+      <section class="section section-shell">
+        <div class="selfhost-cta">
+          <p>
+            <strong>Or deploy your own.</strong>
+            The Worker and R2 bucket are open source. Run it on your own Cloudflare account for the cost of R2 egress (~$0 at this scale). Same API, full control.
+          </p>
+          <a class="btn-outline" href="self-host.html">
+            Self-host guide &nbsp;→
+          </a>
+          <a class="btn-outline" href="cloud-spec.html" style="margin-left: 12px; opacity: 0.7;">
+            Design spec &nbsp;→
+          </a>
+        </div>
+      </section>
+
+      <section class="family-block">
+        <div class="family-block-header">
+          <h3>The agent-* toolkit</h3>
+          <p>Three small tools, same visual language, same bias: stop dragging context around by hand.</p>
+        </div>
+        <div class="family-block-grid">
+          <a class="family-block-card" href="index.html">
+            <strong>recall</strong>
+            <span>Session memory. Save what happened, restart with full context.</span>
+          </a>
+          <a class="family-block-card" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">
+            <strong>agent-pb</strong>
+            <span>Prompt builder. Assemble the right context before the run starts.</span>
+          </a>
+          <a class="family-block-card" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">
+            <strong>agent-look</strong>
+            <span>Visual capture. Screenshots and vision for when the work is on screen.</span>
+          </a>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="footer-copy">
+          <div class="paper-clip" aria-hidden="true"></div>
+          <span>Made by Ashley Raiteri</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/ashrocket/recall" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    // ── Pricing toggle ──
+    const plans = {
+      quarterly: { price: '$1.50', period: '/quarter \u00a0·\u00a0 $0.50/month', btn: 'Subscribe — $1.50/quarter' },
+      yearly:    { price: '$3.00', period: '/year \u00a0·\u00a0 $0.25/month', btn: 'Subscribe — $3.00/year' },
+    };
+    let currentPlan = 'quarterly';
+
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentPlan = btn.dataset.plan;
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = plans[currentPlan];
+        document.getElementById('price-display').textContent = p.price;
+        document.getElementById('price-period').innerHTML = p.period;
+        document.getElementById('checkout-btn').textContent = p.btn;
+        document.getElementById('checkout-btn').dataset.plan = currentPlan;
+      });
+    });
+
+    // ── Checkout ──
+    const WORKER_URL = 'https://recall-cloud.exampleuser.workers.dev';
+
+    document.getElementById('checkout-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('checkout-btn');
+      const origText = btn.textContent;
+      btn.textContent = 'Redirecting to Stripe...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${WORKER_URL}/v1/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: currentPlan }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          btn.textContent = data.message || 'Something went wrong';
+          setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 3000);
+        }
+      } catch (err) {
+        btn.textContent = 'Connection failed — try again';
+        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 3000);
+      }
+    });
+
+    // ── Post-checkout: retrieve API key if redirected from Stripe ──
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success' && params.get('session_id')) {
+      (async () => {
+        document.getElementById('post-checkout').style.display = 'block';
+        document.getElementById('checkout-section').style.display = 'none';
+        try {
+          const res = await fetch(`${WORKER_URL}/v1/checkout/key?session_id=${params.get('session_id')}`);
+          const data = await res.json();
+          if (data.api_key) {
+            document.getElementById('api-key-display').textContent = data.api_key;
+          }
+        } catch { /* key will show placeholder — user can rotate later */ }
+      })();
+    }
+  </script>
+</body>
+</html>

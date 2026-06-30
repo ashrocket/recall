@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Get started with recall. Step-by-step setup for Claude Code and Codex CLI — install, verify, save, restart.">
+  <title>Start here | recall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fef9f2;
+      --bg2: #fef3e6;
+      --surface: #ffffff;
+      --surface-warm: #fffaf4;
+      --border: #f0ddd0;
+      --border-strong: #e0c8b0;
+      --text: #3d2416;
+      --text-muted: #9a7a68;
+      --text-light: #c4a898;
+      --text-bright: #1a0800;
+      --pink: #f9c0d8;
+      --pink-deep: #d6638a;
+      --lav: #d4c4f4;
+      --lav-deep: #8b6ed4;
+      --mint: #b4e8d0;
+      --mint-deep: #3a9e78;
+      --accent: #e07454;
+      --red-pen: #c0392b;
+      --sticky-yellow: #fff7b3;
+      --sticky-blue: #d8efff;
+      --sticky-pink: #ffd9eb;
+      --sticky-mint: #d7f3e8;
+      --sticky-shadow: rgba(0, 0, 0, 0.08);
+      --desk: #f3dfc7;
+      --manila: #f3e0b8;
+      --manila-deep: #e0c68d;
+      --cork: #e7c597;
+      --shadow-soft: 0 18px 40px rgba(61, 36, 22, 0.08);
+      --shadow-paper: 0 12px 24px rgba(61, 36, 22, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Plus Jakarta Sans", sans-serif;
+      line-height: 1.65;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(180, 232, 208, 0.18), transparent 26%),
+        radial-gradient(circle at 90% 12%, rgba(249, 192, 216, 0.14), transparent 28%),
+        radial-gradient(circle at 18% 82%, rgba(212, 196, 244, 0.15), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 40%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23d8c1af' fill-opacity='0.14'%3E%3Ccircle cx='20' cy='24' r='1.2'/%3E%3Ccircle cx='82' cy='44' r='1'/%3E%3Ccircle cx='136' cy='30' r='1.2'/%3E%3Ccircle cx='46' cy='118' r='1.2'/%3E%3Ccircle cx='114' cy='92' r='1.1'/%3E%3Ccircle cx='148' cy='132' r='1.4'/%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    a { color: inherit; }
+    main { padding: 100px 0 64px; }
+
+    /* family nav (matches other pages) */
+    .family-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 24px;
+      background: rgba(254, 249, 242, 0.9);
+      border-bottom: 1px solid rgba(224, 200, 176, 0.8);
+      backdrop-filter: blur(10px);
+    }
+    .family-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .family-links::-webkit-scrollbar { display: none; }
+    .family-link, .family-github {
+      position: relative;
+      flex: 0 0 auto;
+      text-decoration: none;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 7px 10px;
+      border-radius: 999px;
+      transition: color 0.18s ease, background 0.18s ease;
+    }
+    .family-link:hover, .family-github:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.65);
+    }
+    .family-link.current {
+      color: var(--text-bright);
+      font-weight: 700;
+    }
+    .family-link.current::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .family-sep {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+    .family-ext { font-size: 12px; opacity: 0.7; }
+    .family-ext:hover { opacity: 1; }
+
+    .wrap {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .section { margin-bottom: 34px; }
+    .section-shell { position: relative; padding: 34px 0; }
+    .section-kicker {
+      margin-bottom: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-light);
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--text-bright);
+      margin-bottom: 10px;
+    }
+    .section-intro {
+      max-width: 700px;
+      font-size: 17px;
+      color: var(--text-muted);
+    }
+
+    /* hero */
+    .hero-area {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 28px;
+      align-items: start;
+      padding-top: 8px;
+    }
+    .hero-copy { position: relative; padding: 18px 6px 12px 0; }
+    .hero-title {
+      max-width: 620px;
+      font-size: clamp(42px, 7vw, 72px);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      color: var(--text-bright);
+      margin: 8px 0 18px;
+    }
+    .hero-subtitle {
+      max-width: 580px;
+      font-size: 17px;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+    }
+    .hero-note {
+      margin-top: 12px;
+      font-family: "Caveat", cursive;
+      font-size: 26px;
+      color: var(--red-pen);
+      transform: rotate(-1.5deg);
+    }
+    .hero-jumps {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    .jump-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      background: var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      text-decoration: none;
+      transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .jump-pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 32px rgba(61, 36, 22, 0.14);
+    }
+    .jump-pill .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(224, 116, 84, 0.18);
+    }
+    .jump-pill.codex .dot { background: var(--lav-deep); box-shadow: 0 0 0 3px rgba(139, 110, 212, 0.18); }
+    .jump-pill.gemini .dot { background: var(--mint-deep); box-shadow: 0 0 0 3px rgba(58, 158, 120, 0.18); }
+
+    /* sticky notes (matches other pages) */
+    .hero-right { position: relative; padding-top: 8px; }
+    .sticky-note {
+      position: relative;
+      padding: 22px 22px 26px;
+      border: 1px solid rgba(190, 170, 94, 0.5);
+      border-radius: 3px;
+      box-shadow: 0 16px 28px var(--sticky-shadow);
+      color: #4c3b1f;
+      transform: rotate(-2deg);
+    }
+    .sticky-yellow { background: var(--sticky-yellow); }
+    .sticky-pink { background: var(--sticky-pink); border-color: rgba(214, 99, 138, 0.35); }
+    .sticky-blue { background: var(--sticky-blue); border-color: rgba(90, 140, 176, 0.35); }
+    .sticky-mint { background: var(--sticky-mint); border-color: rgba(58, 158, 120, 0.34); }
+    .sticky-note h3 {
+      font-size: 19px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      color: #2d190d;
+    }
+    .sticky-note p, .sticky-note li {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .sticky-note ul { padding-left: 18px; margin-top: 8px; }
+    .sticky-note .scribble {
+      margin-top: 12px;
+      font-family: "Caveat", cursive;
+      font-size: 24px;
+      color: var(--red-pen);
+    }
+
+    /* step cards */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+      margin-top: 36px;
+    }
+    @media (min-width: 980px) {
+      .steps-grid.two-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 32px 28px;
+      }
+    }
+
+    .step-card {
+      position: relative;
+      padding: 28px 24px 22px 28px;
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      background:
+        linear-gradient(90deg, transparent 0, transparent 17px, rgba(192, 57, 43, 0.22) 17px, rgba(192, 57, 43, 0.22) 19px, transparent 19px),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 24px, rgba(201, 186, 174, 0.45) 24px, rgba(201, 186, 174, 0.45) 25px),
+        var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+    }
+    .step-card::before {
+      content: attr(data-tab);
+      position: absolute;
+      top: -15px;
+      left: 24px;
+      padding: 7px 16px 5px;
+      border-radius: 12px 12px 0 0;
+      border: 1px solid var(--border-strong);
+      border-bottom: none;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--tab-bg, var(--mint));
+      color: var(--tab-ink, var(--mint-deep));
+    }
+    .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--tab-bg, var(--mint));
+      color: var(--tab-ink, var(--mint-deep));
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-card h3 {
+      font-size: 20px;
+      color: var(--text-bright);
+      letter-spacing: -0.02em;
+    }
+    .step-card p {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+    .step-card p + p { margin-top: -4px; }
+
+    /* terminal blocks (matches self-host) */
+    .terminal-block {
+      border: 1px solid rgba(224, 200, 176, 0.75);
+      border-radius: 14px;
+      background: rgba(255, 251, 245, 0.92);
+      overflow: hidden;
+    }
+    .terminal-block + .terminal-block { margin-top: 12px; }
+    .terminal-label {
+      padding: 7px 14px;
+      border-bottom: 1px dashed rgba(154, 122, 104, 0.34);
+      background: rgba(255, 255, 255, 0.72);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-light);
+    }
+    .terminal-block pre {
+      padding: 14px 16px 16px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text);
+      white-space: pre;
+    }
+    .cmd { color: var(--text-bright); font-weight: 600; }
+    .comment { color: var(--text-muted); }
+    .accent-text { color: var(--accent); font-weight: 600; }
+    .mint-text { color: var(--mint-deep); font-weight: 600; }
+    .lav-text { color: var(--lav-deep); font-weight: 600; }
+    .ok { color: var(--mint-deep); }
+    .wait { color: var(--text-muted); }
+    .dim { color: var(--text-muted); }
+    .frame { color: var(--text-light); }
+    .err { color: var(--red-pen); }
+
+    /* section head */
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 8px;
+    }
+    .annotation {
+      font-family: "Caveat", cursive;
+      font-size: 28px;
+      color: var(--red-pen);
+      transform: rotate(-1.5deg);
+      text-align: right;
+      flex: 0 0 auto;
+    }
+
+    /* sync callout (sticky note row) */
+    .sticky-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 22px;
+      margin-top: 28px;
+    }
+    .sticky-row .sticky-note { transform: rotate(-1.5deg); }
+    .sticky-row .sticky-note:nth-child(2) { transform: rotate(1.2deg); }
+    .sticky-row .sticky-note:nth-child(3) { transform: rotate(-0.8deg); }
+    .sticky-row .sticky-note:nth-child(4) { transform: rotate(1.6deg); }
+
+    /* commands table */
+    .commands-card {
+      margin-top: 28px;
+      padding: 26px 26px 22px;
+      border: 1px solid var(--border-strong);
+      border-radius: 16px;
+      background: var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+    }
+    .commands-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+    }
+    .commands-card th, .commands-card td {
+      text-align: left;
+      padding: 9px 8px;
+      border-bottom: 1px dashed rgba(154, 122, 104, 0.28);
+    }
+    .commands-card th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-light);
+      font-weight: 700;
+    }
+    .commands-card td:first-child {
+      color: var(--text-bright);
+      font-weight: 600;
+      width: 38%;
+      white-space: nowrap;
+    }
+    .commands-card td:last-child {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* paper clip */
+    .paper-clip {
+      position: absolute;
+      left: 5px;
+      top: 11px;
+      width: 20px;
+      height: 52px;
+      border: 4px solid rgba(120, 100, 90, 0.5);
+      border-radius: 18px;
+    }
+    .paper-clip::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 11px;
+      width: 14px;
+      height: 42px;
+      border: 4px solid rgba(120, 100, 90, 0.5);
+      border-radius: 18px;
+    }
+
+    /* family-block */
+    .family-block {
+      margin-top: 18px;
+      padding: 26px 28px 30px;
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      background: var(--surface-warm);
+      box-shadow: var(--shadow-paper);
+    }
+    .family-block-header h3 {
+      font-size: 22px;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+    }
+    .family-block-header p {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      max-width: 620px;
+    }
+    .family-block-grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .family-block-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 16px 18px 18px;
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--text);
+      text-decoration: none;
+      transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .family-block-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(61, 36, 22, 0.08);
+    }
+    .family-block-card strong {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 14px;
+      color: var(--text-bright);
+    }
+    .family-block-card span {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* footer */
+    .footer {
+      margin-top: 18px;
+      padding: 24px 0 16px;
+      border-top: 1px solid rgba(224, 200, 176, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .footer .paper-clip {
+      position: static;
+      width: 20px;
+      height: 42px;
+      border-width: 3px;
+      transform: rotate(12deg);
+      margin-right: 6px;
+    }
+    .footer .paper-clip::after {
+      left: 2px;
+      top: 6px;
+      width: 8px;
+      height: 24px;
+      border-width: 3px;
+    }
+    .footer-copy {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+    .footer-links a {
+      text-decoration: none;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-cta {
+      font-family: "Caveat", cursive;
+      font-size: 22px;
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 2px dashed rgba(224, 116, 84, 0.4);
+      padding-bottom: 2px;
+      transition: border-color 0.18s;
+    }
+    .footer-cta:hover { border-color: var(--accent); }
+
+    /* responsive */
+    @media (max-width: 900px) {
+      .hero-area { grid-template-columns: 1fr; }
+      .hero-right { display: none; }
+    }
+    @media (max-width: 600px) {
+      .family-nav { padding: 0 14px; gap: 10px; }
+      .family-link, .family-github { font-size: 12px; padding: 6px 8px; }
+      main { padding: 88px 0 48px; }
+      .section-head { flex-direction: column; align-items: start; }
+      .terminal-block pre { font-size: 11.5px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="family-nav">
+    <div class="family-links" aria-label="recall">
+      <a class="family-link" href="index.html">recall</a>
+      <a class="family-link current" href="start.html">start</a>
+      <a class="family-link" href="examples.html">examples</a>
+      <a class="family-link" href="blog.html">blog</a>
+      <a class="family-link" href="cloud.html">cloud</a>
+      <span class="family-sep" aria-hidden="true"></span>
+      <a class="family-link family-ext" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">agent-pb</a>
+      <a class="family-link family-ext" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">agent-look</a>
+    </div>
+    <a class="family-github" href="https://github.com/ashrocket/recall" target="_blank" rel="noreferrer">GitHub -&gt;</a>
+  </nav>
+
+  <main>
+    <div class="wrap">
+
+      <!-- hero -->
+      <section class="section section-shell">
+        <div class="hero-area">
+          <div class="hero-copy">
+            <div class="section-kicker">Walkthrough · ~7 min end-to-end</div>
+            <h1 class="hero-title">Start here.</h1>
+            <p class="hero-subtitle">
+              recall gives your AI coding agent memory across sessions. Three minutes to install and feel the aha (<code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">save</code> → close → <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">restart</code>). Another four to run every <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">/recall</code> subcommand once so the rest never feels foreign.
+            </p>
+            <div class="hero-jumps">
+              <a class="jump-pill" href="#speedrun"><span class="dot"></span>Speedrun · 3 min</a>
+              <a class="jump-pill codex" href="#tour"><span class="dot"></span>Subcommand tour · 4 min</a>
+              <a class="jump-pill gemini" href="#different-agent"><span class="dot"></span>Codex / Gemini</a>
+            </div>
+            <div class="hero-note">install → verify → save → restart → tour</div>
+          </div>
+          <div class="hero-right">
+            <div class="sticky-note sticky-mint">
+              <h3>What you'll have when you're done</h3>
+              <ul>
+                <li>Plugin installed, hooks wired</li>
+                <li>One restart prompt saved</li>
+                <li>A fresh session restored from it</li>
+                <li>Every core <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">/recall</code> subcommand tried once</li>
+              </ul>
+              <div class="scribble">no goldfish brain.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- speedrun -->
+      <section class="section section-shell" id="speedrun">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Speedrun · 3 minutes · Claude Code</div>
+            <h2 class="section-title">Install → save → restart</h2>
+            <p class="section-intro" style="margin-top: 8px;">Four steps. The aha is step 4 — a fresh Claude Code session that already knows what you were doing. <a href="#different-agent" style="text-decoration: underline; color: var(--accent);">Using Codex or Gemini?</a></p>
+          </div>
+          <div class="annotation">recommended</div>
+        </div>
+
+        <div class="steps-grid">
+
+          <!-- CC Step 1: install -->
+          <div class="step-card" data-tab="step 1" style="--tab-bg: var(--mint); --tab-ink: var(--mint-deep);">
+            <div class="step-header">
+              <div class="step-number">1</div>
+              <h3>Install via marketplace</h3>
+            </div>
+            <p>In any Claude Code session, paste this:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">claude code prompt</div>
+              <pre><span class="cmd">/plugin marketplace add ashrocket/recall</span></pre>
+            </div>
+            <p style="margin-top: 14px;">Claude Code will prompt you to grant permissions:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">permission request</div>
+<pre><span class="frame">┌─ Permission Request ──────────────────────────────┐</span>
+<span class="frame">│</span>  recall wants to:                           <span class="frame">│</span>
+<span class="frame">│</span>    <span class="dim">•</span> Read session transcripts                     <span class="frame">│</span>
+<span class="frame">│</span>    <span class="dim">•</span> Write to ~/.claude/projects/&lt;proj&gt;/           <span class="frame">│</span>
+<span class="frame">│</span>    <span class="dim">•</span> Register SessionStart, SessionEnd, Bash      <span class="frame">│</span>
+<span class="frame">│</span>      hooks                                       <span class="frame">│</span>
+<span class="frame">│</span>                                                   <span class="frame">│</span>
+<span class="frame">│</span>  [ Allow once ]  <span class="accent-text">[ Allow always ]</span>  [ Deny ]      <span class="frame">│</span>
+<span class="frame">└───────────────────────────────────────────────────┘</span></pre>
+            </div>
+            <p style="margin-top: 14px;">Pick <strong>Allow always</strong> so hooks stay wired across all future sessions.</p>
+            <p style="margin-top: 14px; font-size: 14px; color: var(--text);"><strong>About the command name.</strong> Claude Code namespaces every plugin command, so the real command is <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">/recall:recall</code>. Want the shorter <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">/recall</code>? Run this once:</p>
+            <div class="terminal-block" style="margin-top: 10px;">
+              <div class="terminal-label">optional shortcut</div>
+              <pre><span class="cmd">/recall:install-alias</span></pre>
+            </div>
+            <p style="margin-top: 10px; font-size: 13px; color: var(--muted);">Writes a personal <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">~/.claude/commands/recall.md</code> that dispatches to the plugin. Delete that file any time to remove the shortcut. The rest of this guide uses <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">/recall</code>; substitute <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">/recall:recall</code> if you skipped this step.</p>
+          </div>
+
+          <!-- CC Step 2: verify -->
+          <div class="step-card" data-tab="step 2" style="--tab-bg: var(--lav); --tab-ink: var(--lav-deep);">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <h3>Verify</h3>
+            </div>
+            <p>Run <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">/recall</code>. You should see an empty session list and a connection status:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">claude code session</div>
+<pre><span class="cmd">&gt; /recall</span>
+
+<span class="frame">┌─ Recent sessions — &lt;proj&gt;  (0 total) ─────────────┐</span>
+<span class="frame">│</span>                                                   <span class="frame">│</span>
+<span class="frame">│</span>   <span class="dim">no sessions yet — finish one to populate</span>        <span class="frame">│</span>
+<span class="frame">│</span>                                                   <span class="frame">│</span>
+<span class="frame">└───────────────────────────────────────────────────┘</span>
+
+recall  <span class="ok">●</span>  connected
+├─ Hooks       <span class="ok">●</span>  SessionStart, SessionEnd, Bash
+├─ Index       <span class="ok">●</span>  ~/.claude/projects/&lt;proj&gt;/recall-index.json
+└─ Restarts    <span class="dim">○</span>  0 saved   <span class="comment">(run /recall save to create one)</span></pre>
+            </div>
+            <p style="margin-top: 14px;">Empty is correct — sessions index at SessionEnd, restarts on <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">/recall save</code>.</p>
+          </div>
+
+          <!-- CC Step 3: first save -->
+          <div class="step-card" data-tab="step 3" style="--tab-bg: var(--pink); --tab-ink: var(--pink-deep);">
+            <div class="step-header">
+              <div class="step-number">3</div>
+              <h3>Save your first session</h3>
+            </div>
+            <p>When work is in progress and your context is getting long, run:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall save</div>
+<pre><span class="cmd">&gt; /recall save</span>
+
+  <span class="ok">●</span>  Indexing session...
+  <span class="ok">●</span>  23 messages · 8 commands · 1 failure captured
+  <span class="ok">●</span>  Distilling <span class="comment">(stripping noise, keeping decisions)</span>
+  <span class="ok">●</span>  Saved → <span class="accent-text">recall-restarts/payroll-bonus-fix.prompt</span>
+
+  Restart with: <span class="cmd">/recall restart</span></pre>
+            </div>
+            <p style="margin-top: 14px;">This is <strong>not</strong> a transcript dump — recall strips tangents and keeps only decisions, files touched, and what to do next.</p>
+          </div>
+
+          <!-- CC Step 4: first restart -->
+          <div class="step-card" data-tab="step 4" style="--tab-bg: var(--sticky-yellow); --tab-ink: #7a6010;">
+            <div class="step-header">
+              <div class="step-number">4</div>
+              <h3>Restart in a fresh session</h3>
+            </div>
+            <p>Close that session. Open a new Claude Code window in the same project:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">new claude code session</div>
+<pre><span class="cmd">&gt; /recall restart</span>
+
+<span class="frame">┌─ Saved restarts ──────────────────────────────────┐</span>
+<span class="frame">│</span>  1.  payroll-bonus-fix         5 min ago          <span class="frame">│</span>
+<span class="frame">│</span>  2.  auth-flow-refactor        2d ago             <span class="frame">│</span>
+<span class="frame">│</span>  3.  jwt-migration             4d ago             <span class="frame">│</span>
+<span class="frame">└───────────────────────────────────────────────────┘</span>
+
+<span class="cmd">&gt; /recall restart 1</span>
+
+  <span class="ok">●</span>  Loading payroll-bonus-fix...
+
+  Branch:    feature/payroll-fix  <span class="comment">(2 commits ahead)</span>
+  Modified:  src/payroll/bonus.ts, tests/bonus.test.ts
+  Next:      Fix rounding edge case on line 247
+  Risks:     Confirm % vs flat-rate w/ product team
+
+  <span class="ok">●</span>  Context restored. Continuing work.</pre>
+            </div>
+            <p style="margin-top: 14px;">Claude now knows what branch you're on, what's modified, what's next, and what risks are still open — without a single line of re-brief from you. Restart prompts load in the current session by default; use <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.07);padding:1px 5px;border-radius:4px;">/recall restart --launch 1</code> only when you want a separate window.</p>
+          </div>
+
+        </div><!-- /steps-grid -->
+
+        <!-- Did it work? -->
+        <div class="commands-card" style="margin-top: 36px; background: linear-gradient(135deg, rgba(180, 232, 208, 0.30), rgba(255, 251, 245, 0.95));">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <div style="font-family: 'Caveat', cursive; font-size: 32px; color: var(--mint-deep); line-height: 1;">Did it work?</div>
+            <div style="font-size: 14px; color: var(--text-muted); flex: 1; min-width: 260px;">Three checks. If any feels off, jump to <a href="#troubleshooting" style="color: var(--accent); text-decoration: underline;">troubleshooting</a>.</div>
+          </div>
+          <ul style="margin-top: 14px; padding-left: 0; list-style: none; display: grid; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px;">
+            <li><span class="ok">✓</span> &nbsp;<code>/recall</code> shows your project and a session count of 1+</li>
+            <li><span class="ok">✓</span> &nbsp;<code>/recall restart</code> listed a saved prompt and <code>/recall restart 1</code> loaded it cleanly</li>
+            <li><span class="ok">✓</span> &nbsp;The fresh session knew your branch, modified files, and next step</li>
+          </ul>
+          <p style="margin-top: 14px; font-size: 14px; color: var(--text);">All three? You've got the killer feature. Next: <a href="#tour" style="color: var(--accent); text-decoration: underline; font-weight: 600;">run every other <code style="font-family: 'JetBrains Mono', monospace;">/recall</code> subcommand once</a> so the rest stops feeling unfamiliar.</p>
+        </div>
+      </section>
+
+      <!-- subcommand tour -->
+      <section class="section section-shell" id="tour">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Tour · 4 minutes</div>
+            <h2 class="section-title">Every <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.78em; background: rgba(0,0,0,0.05); padding: 2px 10px; border-radius: 8px;">/recall</code> subcommand, once.</h2>
+            <p class="section-intro" style="margin-top: 8px;">You've done <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 4px;">save</code> and <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 4px;">restart</code>. Run each of these once, in order — by the end nothing in the cheat sheet is unfamiliar. Skip any card where the precondition isn't met yet; the mockup tells you what you'll see when it is.</p>
+          </div>
+          <div class="annotation">Core commands · ≈ 30s each</div>
+        </div>
+
+        <div class="steps-grid two-col">
+
+          <!-- Tour 1: /recall -->
+          <div class="step-card" data-tab="list" style="--tab-bg: var(--mint); --tab-ink: var(--mint-deep);">
+            <div class="step-header">
+              <div class="step-number">1</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall</code> / <code style="font-family: 'JetBrains Mono', monospace;">list</code></h3>
+            </div>
+            <p><strong>When:</strong> any time you want to glance at what you've worked on. Now that you've saved one session, the list isn't empty anymore.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall list</div>
+<pre><span class="cmd">&gt; /recall list</span>
+
+<span class="frame">┌─ Recent sessions — &lt;proj&gt;  (1 total) ─────────────┐</span>
+<span class="frame">│</span>  today       payroll-bonus-fix    23 msgs  8 cmds <span class="frame">│</span>
+<span class="frame">└───────────────────────────────────────────────────┘</span></pre>
+            </div>
+          </div>
+
+          <!-- Tour 2: /recall last -->
+          <div class="step-card" data-tab="last" style="--tab-bg: var(--lav); --tab-ink: var(--lav-deep);">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall last</code></h3>
+            </div>
+            <p><strong>When:</strong> you want full details of your most recent session — files, decisions, failures — without scrolling back through history.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall last</div>
+<pre><span class="cmd">&gt; /recall last</span>
+
+<span class="accent-text">payroll-bonus-fix</span>  <span class="comment">· 23 msgs · 8 cmds · 1 failure</span>
+
+Topics:    payroll, rounding, tests
+Files:     src/payroll/bonus.ts
+           tests/bonus.test.ts
+Decision:  Use Number.EPSILON for float compare
+Failure:   <span class="err">python3 bonus.py</span>  <span class="dim">→ ImportError</span></pre>
+            </div>
+          </div>
+
+          <!-- Tour 3: /recall <term> -->
+          <div class="step-card" data-tab="search" style="--tab-bg: var(--pink); --tab-ink: var(--pink-deep);">
+            <div class="step-header">
+              <div class="step-number">3</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall &lt;term&gt;</code></h3>
+            </div>
+            <p><strong>When:</strong> "didn't I solve this last week?" Search messages, commands, files, and failures across every indexed session. Literal fragments like <code style="font-family: 'JetBrains Mono', monospace;">'.p8'</code> and regex patterns like <code style="font-family: 'JetBrains Mono', monospace;">/.*\.p8/</code> work too; arbitrary misspellings simply search and return no matches.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall payroll</div>
+<pre><span class="cmd">&gt; /recall payroll</span>
+
+Searching 1 session...  <span class="ok">1 match</span>
+
+today       payroll-bonus-fix
+            <span class="dim">→ src/payroll/bonus.ts, tests/bonus.test.ts</span>
+            <span class="dim">→ "use Number.EPSILON for float compare"</span></pre>
+            </div>
+          </div>
+
+          <!-- Tour 4: /recall knowledge -->
+          <div class="step-card" data-tab="knowledge" style="--tab-bg: var(--sticky-blue); --tab-ink: #2d5a82;">
+            <div class="step-header">
+              <div class="step-number">4</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall knowledge</code></h3>
+            </div>
+            <p><strong>When:</strong> something feels off and you suspect Claude is missing project context. Dumps the CLAUDE.md it has loaded — global and project.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall knowledge</div>
+<pre><span class="cmd">&gt; /recall knowledge</span>
+
+CLAUDE.md  <span class="ok">●</span>  loaded
+├─ Global  <span class="ok">●</span>  ~/.claude/CLAUDE.md         <span class="dim">(38 lines)</span>
+└─ Project <span class="ok">●</span>  ./CLAUDE.md                 <span class="dim">(12 lines)</span>
+
+Top entries:
+  •  Screenshot context  →  ~/.ai-context/screenshots.md
+  •  User email          →  you@example.com</pre>
+            </div>
+          </div>
+
+          <!-- Tour 5: /recall stats -->
+          <div class="step-card" data-tab="stats" style="--tab-bg: var(--sticky-yellow); --tab-ink: #7a6010;">
+            <div class="step-header">
+              <div class="step-number">5</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall stats</code></h3>
+            </div>
+            <p><strong>When:</strong> curiosity. Skill and learning usage rolled up across all your sessions — gets interesting after a week or two.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall stats</div>
+<pre><span class="cmd">&gt; /recall stats</span>
+
+Sessions:    1
+Commands:    8
+Failures:    1
+Learnings:   <span class="dim">0 pending · 0 approved</span>
+
+Top skills:  recall  ●●●●●  (5 uses)</pre>
+            </div>
+          </div>
+
+          <!-- Tour 6: /recall failures (manufactured) -->
+          <div class="step-card" data-tab="failures" style="--tab-bg: var(--accent); --tab-ink: #fff;">
+            <div class="step-header">
+              <div class="step-number">6</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall failures</code></h3>
+            </div>
+            <p><strong>Let's trigger one.</strong> Run this safe non-destructive failure first so there's something to look at:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">trigger a failure (safe)</div>
+<pre><span class="cmd">$ cat /tmp/recall-demo-nope</span>
+<span class="err">cat: /tmp/recall-demo-nope: No such file or directory</span></pre>
+            </div>
+            <p style="margin-top: 14px;">Then:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall failures</div>
+<pre><span class="cmd">&gt; /recall failures</span>
+
+Recent failures  <span class="comment">(1 group)</span>
+
+<span class="accent-text">not_found</span>  <span class="dim">· 1 occurrence</span>
+  $ cat /tmp/recall-demo-nope
+  <span class="ok">Tip:</span>  check the path exists; <span class="dim">ls -la</span> the parent dir</pre>
+            </div>
+            <p style="margin-top: 14px; font-size: 13.5px;">SOPs also fire <em>inline</em> when a failure matches a known pattern — you'll see them appear right under failing commands during normal work.</p>
+          </div>
+
+          <!-- Tour 7: /recall learn -->
+          <div class="step-card" data-tab="learn" style="--tab-bg: var(--lav); --tab-ink: var(--lav-deep);">
+            <div class="step-header">
+              <div class="step-number">7</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall learn</code></h3>
+            </div>
+            <p><strong>When:</strong> review proposed learnings before they get saved as permanent SOPs. On day one you'll typically see <em>"0 pending"</em> — that's normal. Here's what it looks like when patterns accumulate:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall learn  (with pending learnings)</div>
+<pre><span class="cmd">&gt; /recall learn</span>
+
+2 pending learnings
+
+[1] <span class="accent-text">git / SSH authentication failure</span>
+    Pattern: same HTTPS permission error × 3
+    Fix:     switch git remote from HTTPS to SSH
+    approve (a) / reject (r) / skip (s): <span class="cmd">a</span>
+    <span class="ok">✓</span> Saved to bucket: personal</pre>
+            </div>
+            <p style="margin-top: 14px; font-size: 13.5px;">Auto-proposed when a command fails 3+ times with the same error, or when a failed command is followed by a successful variant.</p>
+          </div>
+
+          <!-- Tour 8: /recall cleanup -->
+          <div class="step-card" data-tab="cleanup" style="--tab-bg: var(--mint); --tab-ink: var(--mint-deep);">
+            <div class="step-header">
+              <div class="step-number">8</div>
+              <h3><code style="font-family: 'JetBrains Mono', monospace;">/recall cleanup</code></h3>
+            </div>
+            <p><strong>When:</strong> monthly hygiene. With no flags, it's a <em>dry run</em> — it tells you what <em>would</em> be pruned, changes nothing. Safe to run any time.</p>
+            <div class="terminal-block">
+              <div class="terminal-label">/recall cleanup  (dry-run by default)</div>
+<pre><span class="cmd">&gt; /recall cleanup</span>
+
+Cleanup analysis  <span class="comment">(no changes made)</span>
+
+  <span class="dim">○</span>  Noise sessions (&lt;3 msgs, no failures):  0
+  <span class="dim">○</span>  Sessions with sensitive data:          0
+  <span class="dim">○</span>  Stale .jsonl files (&gt;30d):             0
+  <span class="dim">○</span>  Duplicate failure patterns:            0
+
+Run <span class="cmd">/recall cleanup --all</span> when you're ready to execute.</pre>
+            </div>
+          </div>
+
+        </div><!-- /steps-grid -->
+
+        <!-- tour completion -->
+        <div class="commands-card" style="margin-top: 36px; background: linear-gradient(135deg, rgba(249, 192, 216, 0.25), rgba(255, 251, 245, 0.95));">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <div style="font-family: 'Caveat', cursive; font-size: 32px; color: var(--pink-deep); line-height: 1;">That's the whole surface.</div>
+            <div style="font-size: 14px; color: var(--text-muted); flex: 1; min-width: 240px;">No hidden mode. Run <code style="font-family: 'JetBrains Mono', monospace;">/recall help</code> any time to see the same command surface in your agent.</div>
+          </div>
+          <p style="margin-top: 14px; font-size: 14px; color: var(--text);">If something didn't behave like the mockup, jump to <a href="#troubleshooting" style="color: var(--accent); text-decoration: underline; font-weight: 600;">troubleshooting</a>. Otherwise you're set — keep working, run <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px;">/recall save</code> when a session gets long, and <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px;">/recall restart</code> when you open a fresh one.</p>
+        </div>
+      </section>
+
+      <!-- different agent -->
+      <section class="section section-shell" id="different-agent">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Codex CLI · Gemini CLI</div>
+            <h2 class="section-title">Using a different agent?</h2>
+            <p class="section-intro" style="margin-top: 8px;">No marketplace yet on those — clone the repo and add one snippet to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">AGENTS.md</code> or <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">GEMINI.md</code>. Once installed, steps 2-4 of the speedrun and the tour above all apply unchanged — same <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">/recall</code> commands, same index.</p>
+          </div>
+        </div>
+
+        <div class="steps-grid two-col">
+
+          <!-- codex install -->
+          <div class="step-card" data-tab="codex" style="--tab-bg: var(--lav); --tab-ink: var(--lav-deep);" id="codex">
+            <div class="step-header">
+              <div class="step-number">A</div>
+              <h3>Codex CLI</h3>
+            </div>
+            <p><strong>1.</strong> Clone the repo to a stable location:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">terminal</div>
+<pre><span class="cmd">git clone https://github.com/ashrocket/recall ~/.recall</span></pre>
+            </div>
+            <p style="margin-top: 14px;"><strong>2.</strong> Append this to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">AGENTS.md</code> (or copy the repo's version):</p>
+            <div class="terminal-block">
+              <div class="terminal-label">AGENTS.md  (project root)</div>
+<pre><span class="accent-text">## Session memory (recall)</span>
+
+At session start:
+<span class="dim">```bash</span>
+<span class="cmd">~/.recall/hooks/scripts/session-start \
+  "$PWD" 2&gt;/dev/null</span>
+<span class="dim">```</span>
+
+At session end:
+<span class="dim">```bash</span>
+<span class="cmd">python3 ~/.recall/hooks/scripts/codex_session_end.py \
+  --latest "$PWD" 2&gt;/dev/null</span>
+<span class="dim">```</span></pre>
+            </div>
+            <p style="margin-top: 14px; font-size: 13.5px;">Then open Codex in your project. Update later with <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">cd ~/.recall && git pull</code>.</p>
+          </div>
+
+          <!-- gemini install -->
+          <div class="step-card" data-tab="gemini" style="--tab-bg: var(--mint); --tab-ink: var(--mint-deep);" id="gemini">
+            <div class="step-header">
+              <div class="step-number">B</div>
+              <h3>Gemini CLI</h3>
+            </div>
+            <p><strong>1.</strong> Clone the repo (same as Codex):</p>
+            <div class="terminal-block">
+              <div class="terminal-label">terminal</div>
+<pre><span class="cmd">git clone https://github.com/ashrocket/recall ~/.recall</span></pre>
+            </div>
+            <p style="margin-top: 14px;"><strong>2.</strong> Append to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">GEMINI.md</code>:</p>
+            <div class="terminal-block">
+              <div class="terminal-label">GEMINI.md  (project root)</div>
+<pre><span class="accent-text">## Session memory (recall)</span>
+
+At the start of each session, run and include the
+output as context:
+<span class="dim">```bash</span>
+<span class="cmd">~/.recall/hooks/scripts/session-start \
+  "$PWD" 2&gt;/dev/null</span>
+<span class="dim">```</span></pre>
+            </div>
+            <p style="margin-top: 14px; font-size: 13.5px;">Gemini reads <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">GEMINI.md</code> automatically. Same shared index as Claude Code and Codex.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- sync state -->
+      <section class="section section-shell">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Cross-platform sync</div>
+            <h2 class="section-title">One index, all agents</h2>
+            <p class="section-intro" style="margin-top: 8px;">Both Claude Code and Codex write to the same path. Save in one, restart in the other.</p>
+          </div>
+          <div class="annotation">use whatever's open</div>
+        </div>
+
+        <div class="terminal-block" style="margin-top: 24px;">
+          <div class="terminal-label">~/.claude/projects/&lt;project-slug&gt;/</div>
+<pre>├─ recall-index.json    <span class="ok">●</span>  searchable session index
+├─ recall-restarts/     <span class="ok">●</span>  saved restart prompts
+└─ *.jsonl              <span class="ok">●</span>  raw session files</pre>
+        </div>
+
+        <div class="sticky-row">
+          <div class="sticky-note sticky-pink">
+            <h3>Save in Claude Code →</h3>
+            <p>restart in Codex. Or Gemini. Or back to Claude Code on another machine.</p>
+            <div class="scribble">history is portable</div>
+          </div>
+          <div class="sticky-note sticky-blue">
+            <h3>The same hooks</h3>
+            <p>SessionStart loads prior context. SessionEnd indexes what happened. PostToolUse:Bash catches failures.</p>
+          </div>
+          <div class="sticky-note sticky-mint">
+            <h3>Privacy by default</h3>
+            <p>Everything stays on your machine in <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.07);padding:1px 5px;border-radius:4px;">~/.claude/projects/</code>. No cloud unless you opt in.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- troubleshooting -->
+      <section class="section section-shell" id="troubleshooting">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">If something looks off</div>
+            <h2 class="section-title">Troubleshooting</h2>
+          </div>
+          <div class="annotation">read it back</div>
+        </div>
+
+        <div class="sticky-row">
+          <div class="sticky-note sticky-yellow">
+            <h3>Hooks not firing (Claude Code)</h3>
+<pre style="margin: 8px 0 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.55; background: transparent;">recall  <span style="color: var(--accent);">◐</span>  partial
+├─ Hooks       ○  not firing
+└─ Restarts    ○  0 saved</pre>
+            <p>Check <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.10);padding:1px 5px;border-radius:4px;">/config</code> → hooks lists recall. Restart Claude Code after install.</p>
+          </div>
+          <div class="sticky-note sticky-pink">
+            <h3>"No sessions yet"</h3>
+            <p>Sessions index at SessionEnd — close + reopen to trigger. Confirm <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.10);padding:1px 5px;border-radius:4px;">~/.claude/projects/&lt;proj&gt;/recall-index.json</code> exists.</p>
+          </div>
+          <div class="sticky-note sticky-blue">
+            <h3>Codex: script not found</h3>
+            <p><code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.10);padding:1px 5px;border-radius:4px;">ls ~/.recall/hooks/scripts/</code> to confirm path. Re-clone if missing.</p>
+          </div>
+          <div class="sticky-note sticky-mint">
+            <h3>Want to wipe and start over?</h3>
+            <p><code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.10);padding:1px 5px;border-radius:4px;">/recall cleanup --all</code> prunes noise without nuking restarts. Restart prompts live in <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(0,0,0,0.10);padding:1px 5px;border-radius:4px;">recall-restarts/</code> — delete by hand.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- family block -->
+      <section class="family-block">
+        <div class="family-block-header">
+          <h3>The agent-* toolkit</h3>
+          <p>Three small tools, same visual language, same bias: stop dragging context around by hand.</p>
+        </div>
+        <div class="family-block-grid">
+          <a class="family-block-card" href="index.html">
+            <strong>recall</strong>
+            <span>Session memory. Save what happened, restart with full context.</span>
+          </a>
+          <a class="family-block-card" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">
+            <strong>agent-pb</strong>
+            <span>Prompt builder. Assemble the right context before the run starts.</span>
+          </a>
+          <a class="family-block-card" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">
+            <strong>agent-look</strong>
+            <span>Visual capture. Screenshots and vision for when the work is on screen.</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- footer -->
+      <footer class="footer">
+        <div class="footer-copy">
+          <div class="paper-clip" aria-hidden="true"></div>
+          <span>Made by Ashley Raiteri</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 22px; flex-wrap: wrap;">
+          <a class="footer-cta" href="cloud.html">Or just use ours &mdash; $0.50/month</a>
+        </div>
+        <div class="footer-links">
+          <a href="index.html">recall</a>
+          <a href="examples.html">examples</a>
+          <a href="blog.html">blog</a>
+          <a href="https://github.com/ashrocket/recall" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+      </footer>
+
+    </div>
+  </main>
+</body>
+</html>

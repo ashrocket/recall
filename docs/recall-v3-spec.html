@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>recall v3 — Index Format Specification</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.65; font-size: 15px; }
+
+/* NAV */
+nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 0.7rem 1.5rem; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+nav strong { color: #f0a050; font-size: 0.95rem; white-space: nowrap; }
+nav a { color: #58a6ff; font-size: 0.8rem; text-decoration: none; white-space: nowrap; }
+nav a:hover { text-decoration: underline; }
+
+/* LAYOUT */
+.wrapper { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+h1 { font-size: 1.9rem; font-weight: 700; color: #f0a050; margin-bottom: 0.3rem; }
+.subtitle { color: #8b949e; font-size: 0.85rem; margin-bottom: 2.5rem; }
+h2 { font-size: 1.15rem; font-weight: 700; color: #e6edf3; margin: 2.5rem 0 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid #21262d; }
+h2::before { content: "# "; color: #58a6ff; }
+h3 { font-size: 0.95rem; font-weight: 600; color: #79c0ff; margin: 1.2rem 0 0.4rem; }
+p { color: #8b949e; margin-bottom: 0.8rem; font-size: 0.9rem; }
+
+/* CODE */
+pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem 1.2rem; overflow-x: auto; margin: 0.8rem 0; font-family: "SF Mono","Fira Code","Cascadia Code",monospace; font-size: 0.78rem; line-height: 1.55; color: #e6edf3; white-space: pre; }
+code { background: #1f2937; padding: 0.15em 0.45em; border-radius: 4px; font-family: "SF Mono","Fira Code",monospace; font-size: 0.82em; color: #e5c07b; }
+pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+/* HIGHLIGHT SYNTAX — basic */
+.kw { color: #ff7b72; }   /* keywords */
+.cm { color: #8b949e; font-style: italic; }   /* comments */
+.st { color: #a5d6ff; }   /* strings */
+.fn { color: #d2a8ff; }   /* function names */
+.nu { color: #79c0ff; }   /* numbers */
+.op { color: #c9d1d9; }   /* operators */
+
+/* CARDS */
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.2rem; margin: 0.8rem 0; }
+.card.green { border-left: 3px solid #3fb950; }
+.card.yellow { border-left: 3px solid #d29922; }
+.card.blue { border-left: 3px solid #58a6ff; }
+.card.orange { border-left: 3px solid #f0a050; }
+.card.red { border-left: 3px solid #f85149; }
+.card.purple { border-left: 3px solid #bc8cff; }
+.card p { font-size: 0.88rem; }
+.card p:last-child { margin-bottom: 0; }
+
+/* TABLES */
+table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.85rem; }
+th { background: #21262d; color: #e6edf3; font-weight: 600; padding: 0.5rem 0.8rem; text-align: left; border: 1px solid #30363d; }
+td { padding: 0.5rem 0.8rem; border: 1px solid #30363d; color: #8b949e; vertical-align: top; }
+td code { font-size: 0.8em; }
+
+/* BADGES */
+.badge { display: inline-block; padding: 0.15em 0.55em; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+.badge.green  { background: #0f2d13; color: #3fb950; border: 1px solid #3fb950; }
+.badge.yellow { background: #2d2107; color: #d29922; border: 1px solid #d29922; }
+.badge.blue   { background: #071530; color: #58a6ff; border: 1px solid #58a6ff; }
+.badge.purple { background: #1e0f3d; color: #bc8cff; border: 1px solid #bc8cff; }
+.badge.orange { background: #2d1b00; color: #f0a050; border: 1px solid #f0a050; }
+
+/* PATCH LIST */
+.patch-list { list-style: none; }
+.patch-list li { display: flex; gap: 0.7rem; padding: 0.55rem 0; border-bottom: 1px solid #21262d; align-items: flex-start; font-size: 0.88rem; }
+.patch-list li:last-child { border-bottom: none; }
+.patch-num { background: #58a6ff; color: #000; font-weight: 700; font-size: 0.72rem; border-radius: 999px; width: 1.4rem; height: 1.4rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 0.05rem; }
+.patch-list li .body { color: #c9d1d9; }
+.patch-list li .body .file { color: #79c0ff; }
+.patch-list li .body .desc { color: #8b949e; font-size: 0.82rem; display: block; margin-top: 0.15rem; }
+
+/* PERF GRID */
+.perf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; margin: 0.8rem 0; }
+.perf-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.9rem 1rem; }
+.perf-card .value { font-size: 1.5rem; font-weight: 700; color: #3fb950; }
+.perf-card .label { font-size: 0.75rem; color: #8b949e; margin-top: 0.2rem; }
+.perf-card .detail { font-size: 0.75rem; color: #6e7681; margin-top: 0.3rem; }
+
+/* TIER COMPARISON */
+.tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.8rem 0; }
+@media(max-width:600px) { .tier-grid { grid-template-columns: 1fr; } }
+.tier-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+.tier-card h4 { color: #e6edf3; font-size: 0.9rem; margin-bottom: 0.6rem; }
+.tier-card .status { font-size: 0.75rem; }
+.tier-card ul { list-style: none; }
+.tier-card ul li { font-size: 0.82rem; color: #8b949e; padding: 0.2rem 0; padding-left: 1rem; position: relative; }
+.tier-card ul li::before { content: "→"; position: absolute; left: 0; color: #58a6ff; }
+
+/* FILE LAYOUT */
+.file-tree { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.2rem; font-family: monospace; font-size: 0.8rem; color: #8b949e; }
+.file-tree .dir { color: #79c0ff; }
+.file-tree .file { color: #a5d6ff; }
+.file-tree .comment { color: #3d4856; }
+.file-tree .new { color: #3fb950; }
+
+/* IMPL ORDER */
+.impl-steps { list-style: none; }
+.impl-steps li { display: flex; gap: 0.8rem; padding: 0.6rem 0; border-bottom: 1px solid #21262d; align-items: flex-start; }
+.impl-steps li:last-child { border-bottom: none; }
+.step-num { background: #21262d; color: #8b949e; font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 0.15rem 0.45rem; flex-shrink: 0; margin-top: 0.1rem; min-width: 2.2rem; text-align: center; }
+.step-num.standalone { background: #071530; color: #58a6ff; }
+.step-num.core { background: #0f2d13; color: #3fb950; }
+.step-num.later { background: #1e0f3d; color: #bc8cff; }
+.impl-steps li .body { font-size: 0.88rem; color: #c9d1d9; }
+.impl-steps li .desc { font-size: 0.8rem; color: #8b949e; display: block; margin-top: 0.1rem; }
+
+/* OPEN Q */
+.open-qs li { padding: 0.5rem 0; border-bottom: 1px solid #21262d; font-size: 0.87rem; color: #8b949e; list-style: none; padding-left: 1.2rem; position: relative; }
+.open-qs li::before { content: "?"; position: absolute; left: 0; color: #d29922; font-weight: 700; }
+.open-qs li:last-child { border-bottom: none; }
+
+/* KARPATHY NOTE */
+.karpathy-note { background: #0d1b2a; border: 1px solid #1c3a5c; border-radius: 8px; padding: 1rem 1.2rem; margin: 1.2rem 0; }
+.karpathy-note h4 { color: #58a6ff; font-size: 0.9rem; margin-bottom: 0.5rem; }
+.karpathy-note p { color: #8b949e; font-size: 0.86rem; }
+
+hr { border: none; border-top: 1px solid #21262d; margin: 2rem 0; }
+.meta { color: #6e7681; font-size: 0.78rem; text-align: center; margin-top: 2rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <strong>recall v3 spec</strong>
+  <a href="#summary">Summary</a>
+  <a href="#philosophy">Philosophy</a>
+  <a href="#schema">Schema</a>
+  <a href="#files">Files</a>
+  <a href="#search">Search</a>
+  <a href="#hooks">Hooks</a>
+  <a href="#tiers">Tiers</a>
+  <a href="#migration">Migration</a>
+  <a href="#security">Security</a>
+  <a href="#perf">Performance</a>
+  <a href="#order">Ship Order</a>
+  <a href="#karpathy">Karpathy Note</a>
+</nav>
+
+<div class="wrapper">
+
+<h1>recall v3</h1>
+<p class="subtitle">FTS5-First SQLite Hybrid · Production-Hardened · 2026-06-21<br>
+Produced by: 6-area research sprint → 3 initial designs → 3×(5-reviewer panel + 3-writer revision) → synthesis · 34 agents · 86 min</p>
+
+<!-- ── SUMMARY ── -->
+<h2 id="summary">Executive Summary</h2>
+<div class="card orange">
+<p>Replace the in-memory TF-IDF inverted index in <code>lib/text_rank.py</code> with a per-project SQLite WAL-mode database (<code>recall.db</code>) using only <strong>Python stdlib sqlite3 + FTS5</strong>. Zero new dependencies for Tier 1.</p>
+</div>
+
+<table>
+  <tr><th></th><th>Now (v2)</th><th>v3 Tier 1</th><th>v3 Tier 2 (later PR)</th></tr>
+  <tr><td>Search</td><td>In-memory TF-IDF</td><td>SQLite FTS5 BM25 + Porter stemming</td><td>+ sqlite-vec semantic vectors</td></tr>
+  <tr><td>Speed at 1k sessions</td><td>~20ms</td><td><strong>~4ms</strong></td><td>~60ms (embedding included)</td></tr>
+  <tr><td>New dependencies</td><td>none</td><td><span class="badge green">none</span></td><td>sqlite-vec, fastembed</td></tr>
+  <tr><td>Rust binary changes</td><td>—</td><td><span class="badge green">zero</span></td><td>zero</td></tr>
+  <tr><td>Migration</td><td>—</td><td>opt-in script</td><td>separate PR</td></tr>
+</table>
+
+<p><code>recall-index.json</code> becomes a <strong>v3 pointer file</strong> — retains last 50 stubs in byte-identical v2 format. The Rust fast-path and cross-project picker need zero changes. Migration is always opt-in.</p>
+
+<!-- ── PHILOSOPHY ── -->
+<h2 id="philosophy">Design Philosophy</h2>
+
+<div class="card blue">
+  <h3>1. Zero mandatory dependencies</h3>
+  <p>Any Python 3.8+ install on macOS/Linux/Windows gets BM25 search at session 1 without a <code>pip install</code>. FTS5 is compiled into CPython-bundled SQLite on all major platforms since 2015. Detection: single <code>CREATE VIRTUAL TABLE USING fts5</code> probe on <code>:memory:</code>.</p>
+</div>
+
+<div class="card blue">
+  <h3>2. Backward compatibility is absolute</h3>
+  <p>The v3 <code>recall-index.json</code> is byte-for-byte compatible with what the Rust binary and cross-project picker expect. All four Rust-required root keys preserved: <code>sessions</code>, <code>failure_patterns</code>, <code>learnings</code>, <code>pending_learnings</code>. <code>user_messages</code> confirmed absent from v2 stubs and stays absent in v3.</p>
+</div>
+
+<div class="card blue">
+  <h3>3. recall.db is a derived cache, not the primary store</h3>
+  <p>For sessions 1–keep_count, the sidecar JSON is source of truth; SQLite is the search index. For sessions beyond keep_count (sidecars may be deleted), SQLite is the sole record. <code>synchronous=NORMAL</code> is appropriate because data was fully written before deletion.</p>
+</div>
+
+<!-- ── SCHEMA ── -->
+<h2 id="schema">SQLite Schema (recall.db)</h2>
+
+<pre><code>CREATE TABLE sessions (
+  id              TEXT PRIMARY KEY,
+  date            TEXT NOT NULL,
+  summary         TEXT,
+  message_count   INTEGER DEFAULT 0,
+  command_count   INTEGER DEFAULT 0,
+  failure_count   INTEGER DEFAULT 0,
+  topics_text     TEXT DEFAULT '',
+  skills_text     TEXT DEFAULT '',
+  failures_text   TEXT DEFAULT '',    <span class="cm">-- category + error[:80] + resolution[:80]</span>
+  learnings_text  TEXT DEFAULT '',
+  failures_json   TEXT DEFAULT '[]',  <span class="cm">-- scrubbed JSON for display beyond keep_count</span>
+  importance      REAL DEFAULT 0.5 CHECK(importance BETWEEN 0.0 AND 1.0),
+  evergreen       INTEGER DEFAULT 0 CHECK(evergreen IN (0,1)),
+  last_accessed_at TEXT
+);
+
+CREATE VIRTUAL TABLE sessions_fts USING fts5(
+  summary, topics_text, failures_text, skills_text, learnings_text,
+  content='sessions', content_rowid='rowid', tokenize='porter unicode61'
+);
+
+<span class="cm">-- THREE MANDATORY EXTERNAL-CONTENT FTS5 TRIGGERS (rowid-based)</span>
+CREATE TRIGGER sessions_ai AFTER INSERT ON sessions BEGIN
+  INSERT INTO sessions_fts(rowid, summary, topics_text, failures_text, skills_text, learnings_text)
+  VALUES(new.rowid, new.summary, new.topics_text, new.failures_text, new.skills_text, new.learnings_text);
+END;
+CREATE TRIGGER sessions_ad AFTER DELETE ON sessions BEGIN
+  INSERT INTO sessions_fts(sessions_fts, rowid, summary, topics_text, failures_text, skills_text, learnings_text)
+  VALUES('delete', old.rowid, old.summary, old.topics_text, old.failures_text, old.skills_text, old.learnings_text);
+END;
+CREATE TRIGGER sessions_au AFTER UPDATE ON sessions BEGIN
+  INSERT INTO sessions_fts(sessions_fts, rowid, summary, topics_text, failures_text, skills_text, learnings_text)
+  VALUES('delete', old.rowid, old.summary, old.topics_text, old.failures_text, old.skills_text, old.learnings_text);
+  INSERT INTO sessions_fts(rowid, summary, topics_text, failures_text, skills_text, learnings_text)
+  VALUES(new.rowid, new.summary, new.topics_text, new.failures_text, new.skills_text, new.learnings_text);
+END;
+
+CREATE TABLE failure_patterns (category TEXT, cmd TEXT, error TEXT, resolution TEXT, session_id TEXT, date TEXT);
+CREATE TABLE learnings        (bucket TEXT, category TEXT, title TEXT, fix TEXT, solution TEXT, session_id TEXT, date TEXT);
+CREATE TABLE entities         (entity TEXT, entity_type TEXT, session_id TEXT, PRIMARY KEY(entity, entity_type, session_id));
+CREATE TABLE usage_stats      (session_id TEXT PRIMARY KEY, last_accessed TEXT, access_count INTEGER DEFAULT 0);
+CREATE TABLE db_meta          (key TEXT PRIMARY KEY, value TEXT);
+
+CREATE INDEX idx_sessions_date       ON sessions(date DESC);
+CREATE INDEX idx_sessions_importance ON sessions(importance DESC);
+CREATE INDEX idx_entities_entity     ON entities(entity);</code></pre>
+
+<h3>Importance calibration</h3>
+<table>
+  <tr><th>Session type</th><th>importance score</th></tr>
+  <tr><td>failures + resolution + learnings</td><td><code>0.75</code></td></tr>
+  <tr><td>failures + resolution only</td><td><code>0.70</code></td></tr>
+  <tr><td>learnings only</td><td><code>0.65</code></td></tr>
+  <tr><td>neither</td><td><code>0.50</code></td></tr>
+</table>
+<p><code>evergreen=1</code> bypasses the 180-day recency decay entirely.</p>
+
+<h3>BM25 column weights</h3>
+<table>
+  <tr><th>Column</th><th>Weight</th><th>Rationale</th></tr>
+  <tr><td><code>summary</code></td><td>3×</td><td>Highest signal — describes the whole session</td></tr>
+  <tr><td><code>topics_text</code></td><td>2×</td><td>Curated topic tags</td></tr>
+  <tr><td><code>skills_text</code></td><td>1.5×</td><td>Skills used</td></tr>
+  <tr><td><code>learnings_text</code></td><td>1.5×</td><td>Approved learnings</td></tr>
+  <tr><td><code>failures_text</code></td><td>1×</td><td>Error + resolution text</td></tr>
+</table>
+
+<!-- ── FILES ── -->
+<h2 id="files">Index Files on Disk</h2>
+
+<div class="file-tree">
+<span class="dir">~/.claude/projects/{project_folder}/</span><br>
+├── <span class="file new">recall.db</span>              <span class="comment">← NEW: SQLite WAL, FTS5 search index + sole record for sessions 101+</span><br>
+├── <span class="file">recall-index.json</span>      <span class="comment">← v3 pointer: last-50 stubs (v2-identical format) + learnings etc.</span><br>
+├── <span class="file new">recall-index.json.v2.bak</span>  <span class="comment">← pre-migration backup (written once)</span><br>
+├── <span class="file new">.recall-migrating</span>     <span class="comment">← sentinel while migration runs; absent normally</span><br>
+├── <span class="file new">.recall-write.lock</span>    <span class="comment">← fcntl advisory lock target for NFS/Docker WAL fallback</span><br>
+└── <span class="dir">recall-sessions/</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="file">{uuid}.json</span>       <span class="comment">← full sidecar (human-readable source of truth, sessions 1–~100)</span>
+</div>
+
+<table>
+  <tr><th>File</th><th>Purpose</th><th>Format</th></tr>
+  <tr><td><code>recall.db</code></td><td>Search index + sole record for sessions beyond keep_count</td><td>SQLite WAL, <code>synchronous=NORMAL</code>; set <code>RECALL_SYNCHRONOUS_FULL=1</code> for NFS crash safety</td></tr>
+  <tr><td><code>recall-index.json</code></td><td>v3 pointer: last 50 stubs in v2-identical format; Rust fast-path compatible</td><td>JSON, atomic write via <code>os.replace()</code>. Adds top-level <code>"db": "recall.db"</code> and <code>"minimum_reader_version": "3.0.0"</code></td></tr>
+  <tr><td><code>recall-sessions/{uuid}.json</code></td><td>Full session sidecar (user_messages, commands, failures, skills_used)</td><td>JSON, human-readable; retained for ~keep_count sessions (default 100)</td></tr>
+  <tr><td><code>.recall-migrating</code></td><td>Sentinel during migration; codex_session_end.py skips writes when present</td><td>Plain text, ISO timestamp</td></tr>
+  <tr><td><code>.recall-write.lock</code></td><td>fcntl advisory lock when WAL can't engage (NFS/Docker)</td><td>Empty file; existence is what matters</td></tr>
+  <tr><td><code>recall-index.json.v2.bak</code></td><td>Pre-migration backup; rollback target; never overwritten</td><td>JSON, identical to pre-migration index</td></tr>
+</table>
+
+<!-- ── SEARCH ── -->
+<h2 id="search">Search Algorithm (<code>/recall &lt;term&gt;</code>)</h2>
+
+<p>Total latency at 1000 sessions: <strong>~4ms</strong>. At 10,000 sessions: ~12ms.</p>
+
+<pre><code><span class="cm"># Step 1: FTS5 probe (once per process, cached in _fts5_available)</span>
+probe = sqlite3.connect(':memory:')
+probe.execute('CREATE VIRTUAL TABLE _probe USING fts5(x)')
+<span class="cm"># Falls back to lib/text_rank.py TF-IDF if this raises OperationalError</span>
+
+<span class="cm"># Step 2: Open with WAL + optional fcntl fallback (db_open_write helper)</span>
+actual_mode = db.execute('PRAGMA journal_mode=WAL').fetchone()[0]
+if actual_mode != 'wal':
+    fcntl.flock(lockfd, fcntl.LOCK_EX)  <span class="cm"># NFS/Docker: process-safe advisory lock</span>
+
+<span class="cm"># Step 3: Health check FTS5 index (once per process)</span>
+db.execute("SELECT count(*) FROM sessions_fts "
+           "JOIN sessions s ON s.rowid = sessions_fts.rowid "  <span class="cm"># JOIN required!</span>
+           "WHERE sessions_fts MATCH 'test' LIMIT 0")
+<span class="cm"># On failure: INSERT INTO sessions_fts(sessions_fts) VALUES('rebuild')</span>
+
+<span class="cm"># Step 4: BM25 primary search + importance UNION (always; &lt;2ms at 1k sessions)</span>
+rows_bm25 = db.execute('''
+  SELECT s.id, s.date, s.summary, s.importance, s.evergreen, s.failures_json,
+         bm25(sessions_fts, 3.0, 2.0, 1.0, 1.5, 1.5) AS bm25_score
+  FROM sessions_fts
+  JOIN sessions s ON s.rowid = sessions_fts.rowid   <span class="cm"># ALWAYS JOIN — never bare MATCH</span>
+  WHERE sessions_fts MATCH ?
+  ORDER BY bm25_score LIMIT 80
+''', (query,))
+<span class="cm"># + UNION with top-20 by importance (eliminates hard retrieval ceiling)</span>
+
+<span class="cm"># Step 5: Entity co-occurrence boost (&lt;1ms)</span>
+entity_ids = {r[0] for r in db.execute(
+    'SELECT DISTINCT session_id FROM entities WHERE entity IN (?,...)', query_tokens)}
+
+<span class="cm"># Step 6: Python scoring — 180-day half-life + importance floor (~0.4ms for 100 rows)</span>
+decay = 1.0 if row['evergreen'] else math.exp(-0.00385 * age_days)
+<span class="cm"># k=0.00385 → half-life=180 days; floor = importance * 0.25 (activates ~435 days)</span>
+effective_decay = max(decay, imp * 0.25)
+entity_boost    = 1.15 if row['id'] in entity_ids else 1.0
+combined        = bm25_norm * effective_decay * (0.8 + 0.2 * imp) * entity_boost
+
+<span class="cm"># Step 7: Update usage_stats (write path only; NEVER at SessionStart where query_only=1)</span>
+db.execute('INSERT INTO usage_stats ... ON CONFLICT DO UPDATE SET access_count=access_count+1')
+
+<span class="cm"># Step 8: Load top-8 session sidecars; fallback to failures_json blob for sessions 101+</span>
+
+<span class="cm"># Step 9: WAL checkpoint (SessionEnd only)</span>
+db.execute('PRAGMA wal_checkpoint(FULL)')  <span class="cm"># falls back to PASSIVE on concurrent reader</span></code></pre>
+
+<div class="card yellow">
+  <h3>Write-pattern compatibility (important!)</h3>
+  <table style="margin:0.4rem 0 0">
+    <tr><th>Write pattern</th><th>Safe?</th><th>Note</th></tr>
+    <tr><td><code>INSERT</code></td><td><span class="badge green">SAFE</span></td><td>AI trigger fires</td></tr>
+    <tr><td><code>UPDATE</code></td><td><span class="badge green">SAFE</span></td><td>AU trigger fires (delete + insert)</td></tr>
+    <tr><td><code>DELETE</code></td><td><span class="badge green">SAFE</span></td><td>AD trigger fires tombstone</td></tr>
+    <tr><td><code>INSERT OR REPLACE</code></td><td><span class="badge yellow">SAFE WITH JOIN ONLY</span></td><td>Bare MATCH (no JOIN) returns stale orphan counts. Always use JOIN guard. Avoid in write paths — rowid churn inflates WAL.</td></tr>
+    <tr><td><code>INSERT...ON CONFLICT DO UPDATE</code></td><td><span class="badge green">SAFE</span></td><td>AU trigger fires on UPDATE branch</td></tr>
+  </table>
+</div>
+
+<!-- ── HOOKS ── -->
+<h2 id="hooks">Hook Implementations</h2>
+
+<h3>SessionStart (~17ms total)</h3>
+<pre><code><span class="cm"># Phase 1: Rust fast-path (unchanged; ~5ms)</span>
+<span class="cm"># Reads recall-index.json v3; format identical to v2; exits 64 if no notable context</span>
+
+<span class="cm"># Phase 2: Python enrichment (~12ms; runs on Rust exit 64 or RECALL_SESSION_START_VERBOSE=1)</span>
+db = sqlite3.connect(str(recall_db_path))
+db.execute('PRAGMA query_only=1')  <span class="cm"># enforced read-only; usage_stats NEVER written here</span>
+
+<span class="cm"># Recent sessions (date index, no FTS; &lt;1ms)</span>
+SELECT id, date, summary, topics_text, failure_count, importance
+FROM sessions ORDER BY date DESC LIMIT 5
+
+<span class="cm"># Recurring failures (last 30 days; &lt;1ms)</span>
+SELECT category, COUNT(*) as cnt, MAX(resolution) as resolution
+FROM failure_patterns WHERE date > date('now', '-30 days')
+GROUP BY category HAVING cnt >= 2 ORDER BY cnt DESC LIMIT 5
+
+<span class="cm"># Output: "Recall: 47 sessions; last 2026-03-20. Topics: payroll, rounding."</span>
+<span class="cm"># If recall.db absent: falls back to v3 JSON stubs (same code path as pre-migration)</span></code></pre>
+
+<h3>SessionEnd — v3 write path detection</h3>
+<pre><code>index = load_index(project_folder, create_if_missing=True)
+recall_db = get_project_dir(project_folder) / 'recall.db'
+
+if index.get('version', 0) >= 3 and recall_db.exists():
+    db = db_open_write(recall_db)  <span class="cm"># WAL + optional fcntl lock</span>
+    <span class="cm"># explicit INSERT or UPDATE (never INSERT OR REPLACE)</span>
+    db.execute('INSERT INTO sessions (id, ...) VALUES (?, ...)', _build_session_row(session_data))
+    db.commit()
+    db.execute('PRAGMA wal_checkpoint(FULL)')
+    _refresh_v3_pointer_file(index, project_folder, session_id, session_data)
+else:
+    <span class="cm"># v2 JSON path — unchanged for unmigrated projects</span>
+    index['sessions'][session_id] = create_session_summary(session_data)
+    save_index(project_folder, index)</code></pre>
+
+<!-- ── TIERS ── -->
+<h2 id="tiers">Tiered Architecture</h2>
+<div class="tier-grid">
+  <div class="tier-card">
+    <h4>Tier 1 <span class="badge green">Ships Now</span></h4>
+    <p class="status" style="color:#8b949e; font-size:0.8rem; margin-bottom:0.6rem">Zero new dependencies · Python stdlib only</p>
+    <ul>
+      <li>FTS5 BM25 multi-column keyword search</li>
+      <li>Porter stemming + unicode61 tokenizer</li>
+      <li>failures_text with actual error text (not just categories)</li>
+      <li>180-day recency decay + importance floor</li>
+      <li>UNION retrieval: BM25 top-80 + importance top-20</li>
+      <li>Entity co-occurrence boost (1.15×)</li>
+      <li><code>/recall doctor</code> diagnostic command</li>
+      <li>~4ms at 1k sessions · ~3.5KB/session storage</li>
+    </ul>
+  </div>
+  <div class="tier-card">
+    <h4>Tier 2 <span class="badge purple">Separate PR · Opt-in</span></h4>
+    <p class="status" style="color:#8b949e; font-size:0.8rem; margin-bottom:0.6rem">Gated: <code>RECALL_EXPERIMENTAL_EMBEDDINGS=1</code></p>
+    <ul>
+      <li>sqlite-vec semantic vector search</li>
+      <li>fastembed ONNX (~80MB model, no PyTorch)</li>
+      <li>Hybrid BM25 + cosine similarity re-ranking</li>
+      <li><code>/recall embed-all</code> backfill command</li>
+      <li>macOS: requires pysqlite3-binary workaround</li>
+      <li>~60ms total search latency</li>
+      <li>Tier 1 fully functional when Tier 2 enabled</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ── MIGRATION ── -->
+<h2 id="migration">Migration Plan (v2 → v3)</h2>
+
+<div class="card green">
+  <p><strong>Never automatic.</strong> Run: <code>python3 migrations/v2_to_v3_fts5.py</code> (dry-run by default) or <code>--apply</code> to execute. Matches <code>migrations/v1_to_v2_restart.py</code> convention. Under 3 seconds at 1000 sessions.</p>
+</div>
+
+<h3>Migration steps</h3>
+<pre><code><span class="cm"># Step 0: Write sentinel  (.recall-migrating) — codex_session_end.py skips writes while present</span>
+<span class="cm"># Step 1: Load v2 index; bail if already v3 (idempotent)</span>
+<span class="cm"># Step 2: FTS5 probe on :memory: — fail fast before creating any files</span>
+<span class="cm"># Step 3: CREATE recall.db with full schema (all DDL above)</span>
+<span class="cm"># Step 4: Per-session INSERT with scrub_for_index() + importance calibration + entity extraction</span>
+<span class="cm">#         Per-session error handling: skip malformed sessions, log + continue</span>
+<span class="cm"># Step 5: Migrate failure_patterns and learnings tables</span>
+<span class="cm"># Step 6: WAL checkpoint (PASSIVE fallback)</span>
+<span class="cm"># Step 7: Write v3 recall-index.json atomically (last-50 stubs, v2-identical format)</span>
+<span class="cm"># Step 8: Write recall-index.json.v2.bak (never overwrite if exists)</span>
+<span class="cm"># Step 9: Verify counts match; FTS5 smoke test; Rust binary compatibility test</span>
+<span class="cm"># Step 10: Remove sentinel</span>
+<span class="cm"># Rollback on any exception: db.rollback() + db_path.unlink() + sentinel.unlink()</span></code></pre>
+
+<!-- ── SECURITY ── -->
+<h2 id="security">Security</h2>
+
+<h3>scrub_for_index() — NEW function in lib/sync_scan.py</h3>
+<p>Applied to all text fields before SQLite storage. Replaces matched spans with <code>[REDACTED:type]</code> (does not blank whole fields). Not applied to sidecar JSON (users read sidecars directly).</p>
+
+<table>
+  <tr><th>Pattern</th><th>Regex</th></tr>
+  <tr><td>AWS access key</td><td><code>AKIA[0-9A-Z]{16}</code></td></tr>
+  <tr><td>OpenAI sk- token</td><td><code>sk-[a-zA-Z0-9_-]{20,}</code></td></tr>
+  <tr><td>GitHub PAT</td><td><code>ghp_[a-zA-Z0-9]{20,}</code></td></tr>
+  <tr><td>GitLab token</td><td><code>glpat-[a-zA-Z0-9_-]{20,}</code></td></tr>
+  <tr><td>Bearer token</td><td><code>Bearer\s+[a-zA-Z0-9._-]{20,}</code></td></tr>
+  <tr><td>DB connection string</td><td><code>(?:postgres|mongodb|mysql|redis)://[^\s]+:[^\s]+@</code></td></tr>
+  <tr><td>Password field</td><td><code>(?:password|passwd|secret)\s*[=:]\s*\S{8,}</code></td></tr>
+  <tr><td>Private key header</td><td><code>-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----</code></td></tr>
+  <tr><td><span class="badge blue">NEW</span> Stripe key</td><td><code>sk[-_](?:live|test)[_][a-zA-Z0-9]{24,}</code></td></tr>
+  <tr><td><span class="badge blue">NEW</span> GitHub OAuth</td><td><code>gho_[a-zA-Z0-9]{20,}</code></td></tr>
+  <tr><td><span class="badge blue">NEW</span> X-API-Key header</td><td><code>X-API-Key:\s*[a-zA-Z0-9_-]{20,}</code></td></tr>
+  <tr><td><span class="badge blue">NEW</span> Export secret</td><td><code>export\s+\w*(?:TOKEN|KEY|SECRET)\s*=\s*\S{8,}</code></td></tr>
+</table>
+
+<h3>Sync exclusions (defense-in-depth)</h3>
+<p><code>lib/sync.py gather_sync_files()</code> excludes at engine layer: <code>*.db</code>, <code>*.db-wal</code>, <code>*.db-shm</code>, <code>.recall-migrating</code>, <code>.recall-write.lock</code>. Also in <code>.recallignore</code> template.</p>
+
+<!-- ── PERF ── -->
+<h2 id="perf">Performance Targets</h2>
+<div class="perf-grid">
+  <div class="perf-card">
+    <div class="value">~4ms</div>
+    <div class="label">Search at 1,000 sessions</div>
+    <div class="detail">FTS5+UNION ~2ms · entity join ~0.5ms · Python scoring ~0.4ms · sidecar loads ~1ms</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">~12ms</div>
+    <div class="label">Search at 10,000 sessions</div>
+    <div class="detail">Well under 200ms target</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">~17ms</div>
+    <div class="label">SessionStart total</div>
+    <div class="detail">Rust ~5ms + Python Phase 2 ~12ms · Phase 2 gated on Rust exit 64</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">~50ms</div>
+    <div class="label">SessionEnd overhead added</div>
+    <div class="detail">SQLite write ~50ms vs v2 JSON · WAL checkpoint +50ms · total unchanged ~2s</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">~3.5KB</div>
+    <div class="label">Storage per session</div>
+    <div class="detail">sessions row ~550B · FTS5 index ~1.2KB · entities ~280B · sidecar JSON ~1.5KB</div>
+  </div>
+  <div class="perf-card">
+    <div class="value">&lt;3s</div>
+    <div class="label">Migration (one-time)</div>
+    <div class="detail">At 1,000 sessions; never runs again</div>
+  </div>
+</div>
+
+<!-- ── ORDER ── -->
+<h2 id="order">Implementation Order</h2>
+<ul class="impl-steps">
+  <li>
+    <span class="step-num standalone">1</span>
+    <span class="body"><span class="file" style="color:#79c0ff">lib/sync_scan.py</span> — implement <code>scrub_for_index(text)</code> with 8 existing + 4 new SECRET_PATTERNS
+    <span class="desc">Standalone patch; add tests to tests/test_sync_scan.py. Benefits all v2 users immediately.</span></span>
+  </li>
+  <li>
+    <span class="step-num standalone">2</span>
+    <span class="body"><span class="file" style="color:#79c0ff">lib/shared.py</span> — atomic <code>save_index()</code> via <code>os.replace()</code>; add <code>RECALL_VERSION</code>; add <code>db_open_write()</code>; fix <code>load_index()</code> version check
+    <span class="desc">Standalone patch. Fixes data-loss risk in existing v2 users.</span></span>
+  </li>
+  <li>
+    <span class="step-num standalone">3</span>
+    <span class="body"><span class="file" style="color:#79c0ff">bin/recall-sessions.py line 31</span> — add <code>'doctor'</code> to <code>_early_fast_binary_supports()</code> exclusion set
+    <span class="desc">One-line change. Unblocks <code>/recall doctor</code> on all machines with Rust binary.</span></span>
+  </li>
+  <li>
+    <span class="step-num standalone">4</span>
+    <span class="body"><span class="file" style="color:#79c0ff">hooks/scripts/session-end.py</span> — enrich <code>failures_text</code> with <code>error[:80] + resolution[:80]</code> in <code>parse_session_full()</code>
+    <span class="desc">Two-line patch. Standalone; benefits v2 search immediately.</span></span>
+  </li>
+  <li>
+    <span class="step-num standalone">5</span>
+    <span class="body"><span class="file" style="color:#79c0ff">hooks/scripts/codex_session_end.py</span> — add sentinel check before <code>save_index()</code> at line ~294
+    <span class="desc">Prevents writes during migration.</span></span>
+  </li>
+  <li>
+    <span class="step-num standalone">6</span>
+    <span class="body"><span class="file" style="color:#79c0ff">lib/sync.py</span> — exclude <code>*.db</code>, <code>*.db-wal</code>, <code>*.db-shm</code>, <code>.recall-migrating</code>, <code>.recall-write.lock</code> in <code>gather_sync_files()</code>
+    <span class="desc">Defense-in-depth; prevents binary DB files from leaking into sync.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">7</span>
+    <span class="body"><span class="file" style="color:#79c0ff">migrations/v2_to_v3_fts5.py</span> — full 10-step migration script (dry-run default, <code>--apply</code> flag)
+    <span class="desc">Core deliverable. Matches v1_to_v2_restart.py convention.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">8</span>
+    <span class="body"><span class="file" style="color:#79c0ff">hooks/scripts/session-end.py + codex_session_end.py</span> — v3 detection + SQLite write path + <code>_refresh_v3_pointer_file()</code>
+    <span class="desc">Critical integration point. Without this, every post-migration SessionEnd silently reverts to v2.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">9</span>
+    <span class="body"><span class="file" style="color:#79c0ff">hooks/scripts/session-start.py</span> — Phase 2 SQLite read path (PRAGMA query_only=1) for recent sessions + recurring failures
+    <span class="desc">Adds richer SessionStart context when recall.db is present.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">10</span>
+    <span class="body"><span class="file" style="color:#79c0ff">lib/recall_doctor.py</span> — <code>/recall doctor</code> diagnostic command; wire into bin/recall-sessions.py dispatch
+    <span class="desc">Troubleshooting tool; critical for user support.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">11</span>
+    <span class="body"><span class="file" style="color:#79c0ff">tests/test_rust_python_parity.py</span> — add <code>test_v3_json_rust_compat</code> fixture; required as pre-deployment CI gate
+    <span class="desc">Permanent regression test against Rust binary breaking on v3 JSON format.</span></span>
+  </li>
+  <li>
+    <span class="step-num core">12</span>
+    <span class="body"><span class="file" style="color:#79c0ff">ONBOARDING.md</span> — add export/backup instructions; document <code>RECALL_SIDECAR_KEEP_COUNT</code> and <code>RECALL_SYNCHRONOUS_FULL</code> env vars
+    <span class="desc">Documentation only.</span></span>
+  </li>
+  <li>
+    <span class="step-num later">13</span>
+    <span class="body">Tier 2 (separate PR): sqlite-vec integration · fastembed · <code>/recall embed-all</code> · macOS pysqlite3-binary docs · <code>RECALL_EXPERIMENTAL_EMBEDDINGS=1</code> gate
+    <span class="desc">Out of scope for Tier 1 release. All prerequisites must be met first.</span></span>
+  </li>
+</ul>
+
+<!-- ── OPEN QUESTIONS ── -->
+<h2>Open Questions (Deferred)</h2>
+<ul class="open-qs">
+  <li><strong>test_v3_json_rust_compat</strong> fixture format — exact structure and assertion logic to finalize before writing; permanent CI regression gate</li>
+  <li><strong>Cross-project SQLite ATTACH</strong> for global <code>/recall project:&lt;name&gt; &lt;term&gt;</code> — current JSON scan unchanged; SQLite ATTACH is a follow-on</li>
+  <li><strong>Outcome-oriented summaries</strong> — current summary captures "what was asked" not "what was fixed"; resolution strings from resolved failures should be appended at SessionEnd (separate PR)</li>
+  <li><strong>Tier 2 prerequisites</strong> — pinned fastembed model ID with SHA256, <code>/recall embed-all</code> backfill, macOS pysqlite3-binary docs, gate behavior fully specified</li>
+  <li><strong>FTS5 column addition procedure</strong> — ALTER TABLE unsupported for FTS5; DROP + CREATE of sessions_fts + all 3 triggers required; document before schema_version 4</li>
+  <li><strong>Windows NFS concurrent writes</strong> — fcntl.flock is POSIX-only; document as known unsupported gap</li>
+  <li><strong>RECALL_SIDECAR_KEEP_COUNT</strong> — should be read by <code>cleanup_old_detail_files()</code>; one-line change</li>
+  <li><strong>Synonym expansion</strong> — <code>oauth→authentication</code>, <code>jwt→token</code> in db_meta, OR-expanded at query time; follow-on</li>
+  <li><strong>BM25 weight calibration</strong> — <code>summary=3×</code>, <code>topics=2×</code> are heuristic; needs production query logs; future <code>/recall tune</code> command</li>
+</ul>
+
+<!-- ── KARPATHY NOTE ── -->
+<h2 id="karpathy">Note: Karpathy LLM Wiki Pattern (Tier 3 Opportunity)</h2>
+
+<div class="karpathy-note">
+  <h4>What the pattern proposes</h4>
+  <p>Karpathy's gist describes maintaining a <strong>persistent wiki of LLM-generated markdown pages</strong> alongside raw sources. Instead of querying raw session records, agents query distilled, cross-referenced knowledge pages. Three layers: raw sources (immutable) → wiki (LLM-maintained markdown) → schema (config). Three operations: Ingest (new source → update 5–10 wiki pages), Query (hit wiki not raw sources), Lint (health-check for contradictions/orphans).</p>
+</div>
+
+<table>
+  <tr><th>Karpathy layer</th><th>recall equivalent</th></tr>
+  <tr><td>Raw sources (immutable)</td><td><code>.jsonl</code> + <code>recall-sessions/{uuid}.json</code></td></tr>
+  <tr><td>The wiki (LLM-maintained markdown)</td><td><strong>New:</strong> <code>recall-wiki/</code> — one page per file/topic/pattern</td></tr>
+  <tr><td>Schema (config)</td><td>Skill config / learnings system</td></tr>
+</table>
+
+<div class="card purple">
+  <h3>How it maps to recall hooks</h3>
+  <p><strong>Ingest</strong> = SessionEnd hook: after FTS5 index write, LLM updates 5–10 relevant wiki pages (<code>recall-wiki/src_payroll.md</code>, <code>recall-wiki/pytest_errors.md</code>).<br>
+  <strong>Query</strong> = <code>/recall &lt;term&gt;</code>: FTS5 finds the relevant wiki pages; wiki content injected instead of raw session stubs.<br>
+  <strong>Lint</strong> = <code>/recall cleanup</code>: detect contradictions, stale pages, orphaned cross-references.</p>
+  <p style="margin-top:0.6rem">The key difference: FTS5 retrieves <em>which sessions</em> touched a topic. The wiki retrieves <em>what is known</em> about the topic — cross-session, distilled, LLM-friendly markdown. "Here's everything recall knows about JWT" vs "here are 3 sessions mentioning JWT".</p>
+  <p style="margin-top:0.4rem">This is a natural <strong>Tier 3</strong> on top of the FTS5 spec. The FTS5 index becomes the navigation layer; the wiki becomes the knowledge layer.</p>
+</div>
+
+<hr>
+<p class="meta">recall v3 index format spec · 2026-06-21 · 34 agents · 2.8M tokens · 86 min · <span class="badge orange">FTS5-First SQLite Hybrid — unanimously chosen by all 5 reviewers across all 3 rounds</span></p>
+
+</div>
+</body>
+</html>

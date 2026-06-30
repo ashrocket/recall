@@ -1,0 +1,11 @@
+{
+  "name": "recall",
+  "version": "3.3.0",
+  "description": "Consistent context across work sessions. Accumulate, distill, restart.",
+  "author": {
+    "name": "ashrocket"
+  },
+  "repository": "https://github.com/ashrocket/recall",
+  "license": "MIT",
+  "keywords": ["session", "restart", "context", "memory", "agent"]
+}

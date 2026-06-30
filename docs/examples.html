@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>recall — Examples</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:             #fef9f2;
+    --bg2:            #fef3e6;
+    --surface:        #ffffff;
+    --surface-warm:   #fffaf4;
+    --border:         #f0ddd0;
+    --border-strong:  #e0c8b0;
+    --text:           #3d2416;
+    --text-muted:     #9a7a68;
+    --text-light:     #c4a898;
+    --text-bright:    #1a0800;
+    --accent:         #e07454;
+    --accent-bg:      rgba(224,116,84,0.08);
+    --accent-border:  rgba(224,116,84,0.28);
+    --pink:           #f9c0d8;
+    --lav:            #d4c4f4;
+    --mint:           #b4e8d0;
+    --shadow-soft:    0 18px 40px rgba(61, 36, 22, 0.08);
+    --shadow-paper:   0 12px 24px rgba(61, 36, 22, 0.1);
+
+    /* terminal-internal syntax (on dark bg — keep vivid) */
+    --t-prompt:  #98c379;
+    --t-bright:  #e8ecf4;
+    --t-muted:   #6b7394;
+    --t-accent:  #f0a050;
+    --t-ocean:   #56b6c2;
+    --t-green:   #98c379;
+    --t-comment: #5c6370;
+    --t-red:     #e06c75;
+    --t-purple:  #c678dd;
+    --t-yellow:  #e5c07b;
+    --t-blue:    #61afef;
+    --t-teal:    #56d4dd;
+    --t-pink:    #c586c0;
+    --t-gold:    #e0c483;
+    --t-saved:   #4a8066;
+    --t-online:  #56b6c2;
+    --t-dim:     #3e4455;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: hidden;
+  }
+
+  /* ─── Nav ─── */
+  .family-nav {
+    position: fixed;
+    top: 0; left: 0; right: 0; z-index: 30;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px;
+    padding: 0 24px;
+    background: rgba(254, 249, 242, 0.9);
+    border-bottom: 1px solid rgba(224, 200, 176, 0.8);
+    backdrop-filter: blur(10px);
+  }
+  .family-links {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .family-links::-webkit-scrollbar { display: none; }
+  .family-link, .family-github {
+    position: relative; flex: 0 0 auto;
+    text-decoration: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; color: var(--text-muted);
+    padding: 7px 10px; border-radius: 999px;
+    transition: color 0.18s ease, background 0.18s ease;
+  }
+  .family-link:hover, .family-github:hover {
+    color: var(--text); background: rgba(255, 255, 255, 0.65);
+  }
+  .family-link.current { color: var(--text-bright); font-weight: 700; }
+  .family-link.current::after {
+    content: ""; position: absolute;
+    left: 10px; right: 10px; bottom: 3px;
+    height: 3px; border-radius: 999px;
+    background: var(--accent);
+  }
+  .family-sep {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--border-strong); flex-shrink: 0; margin: 0 4px;
+  }
+  .family-ext { font-size: 12px; opacity: 0.7; }
+  .family-ext:hover { opacity: 1; }
+
+  .family-block {
+    margin-top: 48px; padding: 32px 0 24px;
+    border-top: 1px dashed var(--border-strong);
+  }
+  .family-block-header { margin-bottom: 20px; }
+  .family-block-header h3 {
+    font-family: "JetBrains Mono", monospace; font-size: 14px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin-bottom: 4px;
+  }
+  .family-block-header p { font-size: 15px; color: var(--text-muted); }
+  .family-block-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .family-block-card {
+    display: block; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); text-decoration: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .family-block-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(224,116,84,0.1); }
+  .family-block-card strong {
+    display: block; font-family: "JetBrains Mono", monospace; font-size: 14px;
+    color: var(--text-bright); margin-bottom: 4px;
+  }
+  .family-block-card span { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+  @media (max-width: 700px) { .family-block-grid { grid-template-columns: 1fr; } }
+
+  /* ─── Page ─── */
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 96px 40px 120px;
+  }
+
+  /* ─── Hero ─── */
+  .hero {
+    margin-bottom: 80px;
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .hero-line {
+    position: absolute;
+    left: 0; top: 0; bottom: -40px;
+    width: 2.5px;
+    border-radius: 2px;
+    background: linear-gradient(to bottom, var(--accent), transparent);
+    opacity: 0.45;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 22px;
+  }
+
+  .hero h1 {
+    font-size: clamp(34px, 4.5vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    color: var(--text-bright);
+    margin-bottom: 18px;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, var(--accent) 0%, #c47840 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 18px;
+    color: var(--text-muted);
+    max-width: 560px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  /* ─── Sections ─── */
+  section { margin-bottom: 72px; }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-light);
+    margin-bottom: 10px;
+  }
+
+  section h2 {
+    font-size: 26px; font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 8px; letter-spacing: -0.02em;
+  }
+
+  section > p {
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    font-size: 15px; max-width: 640px;
+    line-height: 1.7;
+  }
+
+  /* ─── Terminals (keep dark) ─── */
+  .terminal {
+    background: #1c140e;
+    border: 1.5px solid #3a2818;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .terminal-bar {
+    background: #2c1e14;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #3a2818;
+  }
+
+  .terminal-dot { width: 10px; height: 10px; border-radius: 50%; background: #4a3020; }
+  .terminal-dot.r { background: #e06c75; }
+  .terminal-dot.y { background: #e5c07b; }
+  .terminal-dot.g { background: #98c379; }
+
+  .terminal-title {
+    flex: 1; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: #5c6370; letter-spacing: 0.04em;
+  }
+
+  .terminal pre {
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; line-height: 1.8;
+    overflow-x: auto;
+    color: #c8cdd8;
+  }
+  .terminal pre::-webkit-scrollbar { height: 4px; }
+  .terminal pre::-webkit-scrollbar-track { background: transparent; }
+  .terminal pre::-webkit-scrollbar-thumb { background: #3a2818; border-radius: 2px; }
+
+  /* Syntax — on dark terminal bg */
+  .c-prompt   { color: var(--t-prompt); }
+  .c-cmd      { color: var(--t-bright); font-weight: 500; }
+  .c-comment  { color: var(--t-comment); font-style: italic; }
+  .c-accent   { color: var(--t-accent); }
+  .c-ocean    { color: var(--t-ocean); }
+  .c-homebrew { color: var(--t-green); }
+  .c-nightowl { color: var(--t-purple); }
+  .c-gruvbox  { color: var(--t-yellow); }
+  .c-nord     { color: var(--t-blue); }
+  .c-cobalt   { color: var(--t-teal); }
+  .c-catppuccin { color: var(--t-pink); }
+  .c-mariana  { color: var(--t-gold); }
+  .c-red      { color: var(--t-red); }
+  .c-green    { color: var(--t-green); }
+  .c-muted    { color: var(--t-muted); }
+  .c-bright   { color: var(--t-bright); }
+  .c-saved    { color: var(--t-saved); }
+  .c-online   { color: var(--t-online); }
+  .c-thinking { color: var(--t-yellow); }
+  .c-dim      { color: var(--t-dim); }
+
+  /* ─── Flow diagram ─── */
+  .flow {
+    display: flex; align-items: center;
+    gap: 0; margin: 32px 0; flex-wrap: wrap;
+  }
+  .flow-step { display: flex; align-items: center; gap: 0; }
+  .flow-box {
+    background: var(--surface);
+    border: 1.5px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 11px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 500;
+    color: var(--text-muted); white-space: nowrap;
+  }
+  .flow-box.active {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+  .flow-arrow {
+    color: var(--border-strong);
+    font-size: 20px; padding: 0 8px; user-select: none;
+  }
+
+  /* ─── Annotation callouts ─── */
+  .annotation {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 20px;
+    margin: 20px 0;
+  }
+  .annotation p { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+  .annotation strong { color: var(--accent); font-weight: 600; }
+
+  /* ─── Field table ─── */
+  .field-table {
+    width: 100%; border-collapse: collapse;
+    margin: 20px 0; font-size: 13.5px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .field-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-light); text-align: left;
+    padding: 11px 16px;
+    background: var(--surface-warm);
+    border-bottom: 1px solid var(--border);
+  }
+  .field-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .field-table td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; color: var(--accent);
+    white-space: nowrap; font-weight: 600;
+  }
+  .field-table td:nth-child(2) {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-muted); white-space: nowrap;
+  }
+  .field-table tr:last-child td { border-bottom: none; }
+
+  /* ─── Status badges ─── */
+  .status {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .status.saved    { color: #3a8060; background: rgba(58,128,96,0.1); }
+  .status.online   { color: #2a8898; background: rgba(42,136,152,0.1); }
+  .status.thinking { color: #a07020; background: rgba(160,112,32,0.1); }
+  .status.offline  { color: var(--text-light); background: rgba(154,122,104,0.08); }
+
+  /* ─── Multi-terminal row ─── */
+  .terminal-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 24px;
+  }
+  .terminal-row .terminal { margin-bottom: 0; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 700px) {
+    nav { padding: 0 20px; }
+    .page { padding: 80px 20px 80px; }
+    .hero { padding-left: 20px; }
+    .hero h1 { font-size: 32px; }
+    .terminal-row { grid-template-columns: 1fr; }
+    .flow { gap: 4px; }
+    .flow-box { font-size: 11px; padding: 8px 12px; }
+  }
+
+  /* Fade-in */
+  section, .hero { animation: fadeUp 0.55s ease-out both; }
+  section:nth-child(2) { animation-delay: 0.04s; }
+  section:nth-child(3) { animation-delay: 0.08s; }
+  section:nth-child(4) { animation-delay: 0.12s; }
+  section:nth-child(5) { animation-delay: 0.16s; }
+  section:nth-child(6) { animation-delay: 0.20s; }
+  section:nth-child(7) { animation-delay: 0.24s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="family-nav">
+  <div class="family-links" aria-label="recall">
+    <a class="family-link" href="index.html">recall</a>
+    <a class="family-link current" href="examples.html">examples</a>
+    <a class="family-link" href="blog.html">blog</a>
+    <a class="family-link" href="cloud.html">cloud</a>
+    <span class="family-sep" aria-hidden="true"></span>
+    <a class="family-link family-ext" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">agent-pb</a>
+    <a class="family-link family-ext" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">agent-look</a>
+  </div>
+  <a class="family-github" href="https://github.com/ashrocket/recall" target="_blank" rel="noreferrer">GitHub -&gt;</a>
+</nav>
+
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-line"></div>
+    <div class="hero-badge">AI Coding Agent Plugin</div>
+    <h1><span>recall</span> — examples</h1>
+    <p>Don't lose your work. Accumulate context as you work, distill it when context runs out, restart cleanly.</p>
+  </div>
+
+  <!-- /recall save -->
+  <section>
+    <div class="section-label">Command</div>
+    <h2>/recall save</h2>
+    <p>The smart session closer. Indexes your session, strips the noise, and writes a focused restart prompt. One command before you exit.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-box">200K tokens of work</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box active">/recall save</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box">Focused 2-page briefing</div>
+      </div>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">~/projects/SHOP-1024 &mdash; claude</div>
+      </div>
+      <pre><span class="c-prompt">$</span> <span class="c-cmd">/recall save</span>
+
+<span class="c-comment"># Indexing session... 847 messages, 142 commands, 6 failures</span>
+<span class="c-comment"># Distilling...</span>
+
+<span class="c-muted">Stripped:</span>
+  <span class="c-dim">- 12 tangential questions about unrelated CSS</span>
+  <span class="c-dim">- 3 failed approaches to AQL index (wrong collection)</span>
+  <span class="c-dim">- debugging CORS issue that was a typo</span>
+  <span class="c-dim">- "what time is it in Tokyo" side question</span>
+
+<span class="c-muted">Kept:</span>
+  <span class="c-green">+ Payment Aging bucket alignment: 8-bucket → 5-bucket normalization</span>
+  <span class="c-green">+ PaymentBalance.js shared module created (3 consumers)</span>
+  <span class="c-green">+ Live view pivot changed from FILED_DATE to TODAY</span>
+  <span class="c-green">+ All 8 worker branches merged, pipelines green</span>
+  <span class="c-green">+ Deployed to dev, monitoring claims count reconciliation</span>
+
+<span class="c-accent">Saved:</span> restarts/shop1024-checkout-sprint.prompt
+<span class="c-accent">Entry:</span> #41
+
+Session saved. Restart with: <span class="c-bright">/recall restart 41</span></pre>
+    </div>
+
+    <div class="annotation">
+      <p><strong>The distillation is the key.</strong> Your session had 200K tokens of context — wrong turns, debugging rabbit holes, quick "what does this do" questions. The restart prompt keeps only what matters: decisions, state, and next steps.</p>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">restarts/shop1024-checkout-sprint.prompt</div>
+      </div>
+      <pre><span class="c-bright"># SHOP-1024 Checkout Sprint — Session Context</span>
+
+<span class="c-accent">## Permissions (pre-approve these)</span>
+- Edit/write files in ~/projects/SHOP-1024/
+- Run python3, node, git commands
+- Run npm test and npm run build
+
+<span class="c-accent">## Working Directory</span>
+<span class="c-muted">`/Users/dev/projects/SHOP-1024`</span>
+
+<span class="c-accent">## Branch</span>
+<span class="c-muted">`feature/checkout-corrections` (merged to development, 23 commits)</span>
+
+<span class="c-accent">## What Was Done</span>
+Led 8-team corrections sprint for Payment Aging View.
+Normalized legacy 8-bucket system to 5 standard buckets
+via PaymentBalance.js shared module. Delta team changed
+live view pivot from FILED_DATE to TODAY. All teams
+merged and deployed to dev.
+
+<span class="c-accent">### Key Accomplishments</span>
+- PaymentBalance.js: shared computation for 3 dashboard views
+- normalizeCategories() shim for backward compatibility
+- Live view uses TODAY as aging pivot (cron rebuilds snapshot)
+- 79 tests passing across 3 repos
+- All 8 worker branches merged via PR
+
+<span class="c-accent">### Files Modified</span>
+- src/components/billing/payment-aging/*.js (6 files)
+- src/utils/PaymentBalance.js (new)
+- routes/dashboard/paymentAging.js (Node API)
+
+<span class="c-accent">## Restart Instructions</span>
+1. Run `npm test` — verify 79 tests still pass
+2. Check dev deployment: https://api-dev.myapp.com:3000
+3. Compare Alex's order count: dev vs prod
+4. If reconciliation passes, create PR to master
+5. Monitor prod pipeline after merge
+
+<span class="c-accent">## Open Items</span>
+- Backfill script needs cherry-pick to correct branch (Echo)
+- Playwright E2E tests written but not committed (#53)</pre>
+    </div>
+  </section>
+
+  <!-- /recall restart list -->
+  <section>
+    <div class="section-label">Command</div>
+    <h2>/recall restart list</h2>
+    <p>See all saved restarts, grouped by ticket and color-coded by Terminal theme. Workers nest under their leads. Searches downward through child projects.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">~/projects &mdash; claude</div>
+      </div>
+      <pre><span class="c-prompt">$</span> <span class="c-cmd">/recall restart list</span>
+
+<span class="c-bright">Restart Entries</span> (23 total)
+
+<span class="c-catppuccin">--- Catppuccin-Mocha ---</span>
+  <span class="c-catppuccin">+ #4</span>  <span class="c-muted">[lead]</span>  ~/projects cleanup: credentials secured, Tier 1 dirs deleted
+    <span class="c-muted">~/projects</span>
+  <span class="c-catppuccin">+ #13</span> <span class="c-muted">[lead]</span>  Branch cleanup: 65 stale branches audited across 5 repos
+    <span class="c-muted">~/projects</span>
+  <span class="c-catppuccin">+ #29</span> <span class="c-muted">[lead]</span>  devtools installer — Tasks 1-3 done, 4-6 pending
+    <span class="c-muted">~/projects</span>
+
+<span class="c-gruvbox">--- Gruvbox-Dark ---</span>                          <span class="c-comment"># All SHOP-1024 entries share a theme</span>
+  <span class="c-gruvbox">+ #2</span>  <span class="c-muted">[lead]</span>  Orders page bug — only 1 order showing for Alex
+    <span class="c-muted">~/projects/SHOP-1024</span>
+  <span class="c-gruvbox">+ #41</span> <span class="c-muted">[lead]</span>  SHOP-1024 Checkout Sprint — 8 teams, 2-wave execution
+    <span class="c-muted">~/projects/SHOP-1024</span>
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#18]</span> <span class="c-muted">worker:bravo</span> — Order inclusion/exclusion logic
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#20]</span> <span class="c-muted">worker:alpha</span> — Bucket alignment research
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#28]</span> <span class="c-muted">worker:hotel</span> — Validation &amp; Reconciliation
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#33]</span> <span class="c-muted">worker:echo</span>  — Backfill script overhaul
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#34]</span> <span class="c-muted">worker:foxtrot</span> — Laravel PHP layer
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#36]</span> <span class="c-muted">worker:delta</span> — Live view aging pivot
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#37]</span> <span class="c-muted">worker:golf</span>  — Dashboard 8-bucket update
+    <span class="c-muted">  └─</span> <span class="c-gruvbox">[#38]</span> <span class="c-muted">worker:charlie</span> — Dollar calc module
+  <span class="c-gruvbox">+ #39</span> <span class="c-muted">[lead]</span>  Deploy to dev — all 3 repos merged, pipelines green
+    <span class="c-muted">~/projects/SHOP-1024</span>
+  <span class="c-gruvbox">+ #51</span> <span class="c-muted">[lead]</span>  Payment Aging sprint — 14/15 tasks done, Playwright remaining
+    <span class="c-muted">~/projects/SHOP-1024</span>
+  <span class="c-gruvbox">+ #53</span> <span class="c-muted">[lead]</span>  Playwright Payment Aging E2E tests — 5 review passes complete
+    <span class="c-muted">~/projects/SHOP-1024/app-dashboard/e2e</span>
+  <span class="c-gruvbox">+ #54</span> <span class="c-muted">[lead]</span>  Payment reconciliation: Alex formula validated
+    <span class="c-muted">~/projects/SHOP-1024</span>
+
+<span class="c-nord">--- Nord ---</span>
+  <span class="c-nord">+ #52</span> <span class="c-muted">[lead]</span>  SHOP-1025 release timeliness: 30 review iterations, all fixed
+    <span class="c-muted">~/projects/SHOP-1025</span></pre>
+    </div>
+
+    <div class="annotation">
+      <p><strong>Entries with shared ticket IDs get the same theme.</strong> All SHOP-1024 work shows as Gruvbox-Dark — whether it's the lead, workers, or related entries in subdirectories. The theme carries through to the Terminal tab when you launch with <code>--launch</code>.</p>
+    </div>
+  </section>
+
+  <!-- /recall restart # -->
+  <section>
+    <div class="section-label">Command</div>
+    <h2>/recall restart --launch 41</h2>
+    <p>Explicit launch by number. Opens a Terminal tab, pipes the prompt to Claude, and you're back where you left off. Leads auto-launch their workers.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">~/projects &mdash; claude</div>
+      </div>
+      <pre><span class="c-prompt">$</span> <span class="c-cmd">/recall restart --launch 41</span>
+
+<span class="c-accent">Launched #41:</span> SHOP-1024 Checkout Sprint (Gruvbox-Dark)
+  <span class="c-muted">cd ~/projects/SHOP-1024 && cat restarts/restart-leader.prompt | claude</span>
+
+<span class="c-comment"># Lead has 8 workers — launching them too...</span>
+
+<span class="c-accent">Launched #18:</span> worker:bravo — Claims logic (Gruvbox-Dark)
+<span class="c-accent">Launched #20:</span> worker:alpha — Bucket alignment (Gruvbox-Dark)
+<span class="c-accent">Launched #28:</span> worker:hotel — Validation (Gruvbox-Dark)
+<span class="c-accent">Launched #33:</span> worker:echo — Backfill script (Gruvbox-Dark)
+<span class="c-accent">Launched #34:</span> worker:foxtrot — Laravel PHP (Gruvbox-Dark)
+<span class="c-accent">Launched #36:</span> worker:delta — Live view pivot (Gruvbox-Dark)
+<span class="c-accent">Launched #37:</span> worker:golf — Dashboard update (Gruvbox-Dark)
+<span class="c-accent">Launched #38:</span> worker:charlie — Dollar calc (Gruvbox-Dark)
+
+<span class="c-green">9 tabs opened</span> <span class="c-muted">— all Gruvbox-Dark theme</span></pre>
+    </div>
+
+    <div class="terminal-row">
+      <div class="terminal">
+        <div class="terminal-bar" style="background: rgba(229, 192, 123, 0.06);">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+          <div class="terminal-title" style="color: var(--gruvbox);">Tab 1 &mdash; Lead #41</div>
+        </div>
+        <pre><span class="c-gruvbox">SHOP-1024 Checkout Sprint</span>
+<span class="c-muted">8 teams, all merged to dev</span>
+<span class="c-muted">Next: reconciliation check,</span>
+<span class="c-muted">then PR to master...</span>
+
+<span class="c-prompt">claude&gt;</span> <span class="c-dim">|</span></pre>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar" style="background: rgba(229, 192, 123, 0.06);">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+          <div class="terminal-title" style="color: var(--gruvbox);">Tab 2 &mdash; worker:bravo #18</div>
+        </div>
+        <pre><span class="c-gruvbox">Team Bravo</span>
+<span class="c-muted">Order inclusion/exclusion</span>
+<span class="c-muted">CANCELLED, REFUNDED,</span>
+<span class="c-muted">PENDING exclusions...</span>
+
+<span class="c-prompt">claude&gt;</span> <span class="c-dim">|</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- /recall restart <text> -->
+  <section>
+    <div class="section-label">Command</div>
+    <h2>/recall restart bravo</h2>
+    <p>Match by text. Searches summaries and prompt file contents. One match loads into the current session; add <code>--launch</code> to open a separate window.</p>
+
+    <div class="terminal-row">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+          <div class="terminal-title">Single match &mdash; loads current session</div>
+        </div>
+        <pre><span class="c-prompt">$</span> <span class="c-cmd">/recall restart bravo</span>
+
+One match found.
+<span class="c-accent">Loading #18:</span> worker:bravo
+  Order inclusion/exclusion
+  <span class="c-muted">(Gruvbox-Dark)</span></pre>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+          <div class="terminal-title">Multiple matches &mdash; shows picker</div>
+        </div>
+        <pre><span class="c-prompt">$</span> <span class="c-cmd">/recall restart deploy</span>
+
+Multiple matches for 'deploy':
+  <span class="c-gruvbox">[#39]</span> Deploy to dev — all 3
+       repos merged, pipelines green
+  <span class="c-gruvbox">[#47]</span> Hotel — deployed to dev,
+       monitoring pipelines
+
+Use: <span class="c-bright">/recall restart 39</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent registry -->
+  <section>
+    <div class="section-label">Data Model</div>
+    <h2>Agent Registry</h2>
+    <p>Each saved or running agent gets an entry in <code style="color:var(--accent); background:rgba(240,160,80,0.08); padding:2px 6px; border-radius:3px; font-family:'JetBrains Mono',monospace; font-size:13px;">agents.json</code>. Platform-agnostic — tracks Claude Code, Codex, Gemini CLI, or anything else.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">~/.claude/projects/-Users-you-projects-SHOP-1024/agents.json</div>
+      </div>
+      <pre>{
+  <span class="c-accent">"id"</span>: 41,
+  <span class="c-accent">"date"</span>: <span class="c-green">"2026-03-09"</span>,
+  <span class="c-accent">"session_id"</span>: <span class="c-green">"a8f2c-4e91-b7d3"</span>,
+  <span class="c-accent">"working_directory"</span>: <span class="c-green">"/Users/you/projects/SHOP-1024"</span>,
+  <span class="c-accent">"summary"</span>: <span class="c-green">"SHOP-1024 Checkout Sprint — 8 teams, 2-wave execution"</span>,
+  <span class="c-accent">"prompt_file"</span>: <span class="c-green">"restarts/restart-leader.prompt"</span>,
+  <span class="c-accent">"platform"</span>: <span class="c-green">"claude-code"</span>,
+  <span class="c-accent">"role"</span>: <span class="c-green">"lead"</span>,
+  <span class="c-accent">"team"</span>: <span class="c-green">"shop1024-checkout"</span>,
+  <span class="c-accent">"goal"</span>: <span class="c-green">"Ship checkout corrections to production"</span>,
+  <span class="c-accent">"comms_file"</span>: <span class="c-green">"team.coord.md"</span>,
+  <span class="c-accent">"status"</span>: <span class="c-green">"saved"</span>,
+  <span class="c-accent">"workers"</span>: [<span class="c-green">"bravo"</span>, <span class="c-green">"alpha"</span>, <span class="c-green">"hotel"</span>, <span class="c-green">"echo"</span>, <span class="c-green">"foxtrot"</span>, <span class="c-green">"delta"</span>, <span class="c-green">"golf"</span>, <span class="c-green">"charlie"</span>],
+  <span class="c-accent">"lead_id"</span>: <span class="c-catppuccin">null</span>
+}</pre>
+    </div>
+
+    <table class="field-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>platform</td>
+          <td>string</td>
+          <td style="color:var(--text-muted)">Agent runtime &mdash; <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">claude-code</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">codex</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">gemini-cli</code>, etc.</td>
+        </tr>
+        <tr>
+          <td>role</td>
+          <td>string</td>
+          <td style="color:var(--text-muted)"><code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">lead</code> or <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">worker</code>. Workers reference their lead via <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">lead_id</code></td>
+        </tr>
+        <tr>
+          <td>team</td>
+          <td>string</td>
+          <td style="color:var(--text-muted)">Team name &mdash; used for grouping and <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)">CLAUDE_TEAM</code> env var on launch</td>
+        </tr>
+        <tr>
+          <td>goal</td>
+          <td>string</td>
+          <td style="color:var(--text-muted)">What this agent is working toward</td>
+        </tr>
+        <tr>
+          <td>comms_file</td>
+          <td>string</td>
+          <td style="color:var(--text-muted)">Shared coordination file path &mdash; all team members read/write</td>
+        </tr>
+        <tr>
+          <td>status</td>
+          <td>enum</td>
+          <td style="color:var(--text-muted)">
+            <span class="status saved">saved</span>
+            <span class="status online">online</span>
+            <span class="status thinking">thinking</span>
+            <span class="status offline">offline</span>
+            &mdash; plus <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">initializing</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">reading</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">waiting-for-work</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Lifecycle -->
+  <section>
+    <div class="section-label">Lifecycle</div>
+    <h2>The Loop</h2>
+    <p>recall turns the context limit from a wall into a checkpoint.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-box">Work</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box" style="border-color: var(--red); color: var(--red);">Context fills up</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box active">/recall save</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box active">/recall restart</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box">Work</div>
+        <div class="flow-arrow">&rarr;</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-box" style="color: var(--green); border-color: rgba(152, 195, 121, 0.3);">Ship it</div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <p><strong>No more lost context.</strong> The session ends, but the knowledge survives. Every restart prompt is a curated briefing &mdash; not a transcript dump, not a raw log, but the decisions and state that actually matter.</p>
+    </div>
+  </section>
+
+  <section class="family-block">
+    <div class="family-block-header">
+      <h3>The agent-* toolkit</h3>
+      <p>Three small tools, same visual language, same bias: stop dragging context around by hand.</p>
+    </div>
+    <div class="family-block-grid">
+      <a class="family-block-card" href="index.html">
+        <strong>recall</strong>
+        <span>Session memory. Save what happened, restart with full context.</span>
+      </a>
+      <a class="family-block-card" href="https://agent-pb.pages.dev" target="_blank" rel="noreferrer">
+        <strong>agent-pb</strong>
+        <span>Prompt builder. Assemble the right context before the run starts.</span>
+      </a>
+      <a class="family-block-card" href="https://agent-look.raiteri.net" target="_blank" rel="noreferrer">
+        <strong>agent-look</strong>
+        <span>Visual capture. Screenshots and vision for when the work is on screen.</span>
+      </a>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

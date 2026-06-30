@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What is /workflows — and what happened?</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e2e8f0; line-height: 1.6; padding: 2rem; }
+  h1 { font-size: 1.8rem; font-weight: 700; color: #f0a050; margin-bottom: 0.4rem; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: #98c379; margin: 2rem 0 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 1rem; font-weight: 600; color: #61afef; margin: 1rem 0 0.3rem; }
+  p { color: #abb2bf; margin-bottom: 0.8rem; font-size: 0.95rem; }
+  .subtitle { color: #5c6370; font-size: 0.9rem; margin-bottom: 2rem; }
+  .card { background: #1a1d27; border: 1px solid #2d3248; border-radius: 10px; padding: 1.2rem 1.4rem; margin-bottom: 1rem; }
+  .card.red { border-left: 4px solid #e06c75; }
+  .card.green { border-left: 4px solid #98c379; }
+  .card.yellow { border-left: 4px solid #e5c07b; }
+  .card.blue { border-left: 4px solid #61afef; }
+  .card.purple { border-left: 4px solid #c678dd; }
+  code { background: #252a36; padding: 0.15em 0.4em; border-radius: 4px; font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; color: #e5c07b; }
+  .pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+  .phase { background: #252a36; border: 1px solid #3d4263; border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.8rem; font-family: monospace; color: #abb2bf; white-space: nowrap; }
+  .phase.done { border-color: #98c379; color: #98c379; }
+  .phase.killed { border-color: #e06c75; color: #e06c75; background: #2a1a1d; }
+  .arrow { color: #3d4263; font-size: 1.1rem; }
+  .badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+  .badge.killed { background: #3d1a1d; color: #e06c75; border: 1px solid #e06c75; }
+  .badge.background { background: #1a2a3d; color: #61afef; border: 1px solid #61afef; }
+  .badge.warning { background: #3d3010; color: #e5c07b; border: 1px solid #e5c07b; }
+  .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.6rem; margin: 0.8rem 0; }
+  .agent { background: #252a36; border: 1px solid #3d4263; border-radius: 6px; padding: 0.5rem 0.7rem; font-size: 0.78rem; color: #abb2bf; }
+  .agent .role { font-weight: 600; color: #61afef; font-size: 0.8rem; display: block; margin-bottom: 0.2rem; }
+  .count { font-size: 2rem; font-weight: 700; color: #f0a050; }
+  .count-label { font-size: 0.8rem; color: #5c6370; display: block; }
+  .stats { display: flex; gap: 2rem; margin: 1rem 0; }
+  .what-next ol { padding-left: 1.2rem; color: #abb2bf; }
+  .what-next li { margin-bottom: 0.5rem; font-size: 0.95rem; }
+  .what-next li strong { color: #e2e8f0; }
+  hr { border: none; border-top: 1px solid #2d3248; margin: 1.5rem 0; }
+  .tldr { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1.5rem; }
+  .tldr strong { color: #f0a050; }
+  .tldr p { margin: 0; font-size: 1rem; color: #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>What is <code>/workflows</code>?</h1>
+<p class="subtitle">And why did the big research job disappear when you came back?</p>
+
+<div class="tldr">
+  <strong>TL;DR</strong>
+  <p>Claude launched a team of ~30 AI sub-agents to research and design something for you. The team runs in the background. When your session restarted, the team was killed before they could do any work. We need to re-launch it.</p>
+</div>
+
+<!-- ── WHAT IS A WORKFLOW ── -->
+<h2>What is a Workflow?</h2>
+
+<div class="card blue">
+  <h3>Workflows = Claude running a team of AI agents</h3>
+  <p>When a task is too big for one conversation, Claude can launch a <strong>workflow</strong> — a script that spins up many AI sub-agents working in parallel, each with a specific job. They share findings, critique each other, and synthesize results.</p>
+  <p>Think of it like Claude hiring a research team, a panel of critics, and a writing committee — all running at the same time.</p>
+</div>
+
+<div class="card yellow">
+  <h3>They run "in the background"</h3>
+  <p>The workflow keeps running even while you type. Claude says <em>"I'll have the report when it completes"</em> and you can check progress with <code>/workflows</code> in the Claude Code terminal.</p>
+  <p><span class="badge warning">Important</span> &nbsp; "Background" means within the same Claude Code <em>session</em>. If that session ends or restarts — the workflow is killed.</p>
+</div>
+
+<!-- ── WHAT THIS SPECIFIC JOB WAS ── -->
+<h2>What This Job Was Doing</h2>
+
+<div class="card purple">
+  <h3>Goal: Design the optimal search index format for recall</h3>
+  <p>The recall plugin currently uses a simple flat JSON file + TF-IDF keyword search. The question was: <strong>what's the best structure for storing/searching sessions — vector database? knowledge graph? SQLite? something hybrid?</strong></p>
+</div>
+
+<h3>The Pipeline — 8 phases, ~30 agents</h3>
+<div class="pipeline">
+  <span class="phase">Research ×6</span>
+  <span class="arrow">→</span>
+  <span class="phase">Initial Design ×3</span>
+  <span class="arrow">→</span>
+  <span class="phase">Review Round 1 ×5</span>
+  <span class="arrow">→</span>
+  <span class="phase">Revise ×3</span>
+  <span class="arrow">→</span>
+  <span class="phase">Review Round 2 ×5</span>
+  <span class="arrow">→</span>
+  <span class="phase">Revise ×3</span>
+  <span class="arrow">→</span>
+  <span class="phase">Review Round 3 ×5</span>
+  <span class="arrow">→</span>
+  <span class="phase">Final Spec ×1</span>
+</div>
+
+<h3>The 6 Research Agents were each searching for:</h3>
+<div class="agent-grid">
+  <div class="agent"><span class="role">Vector Databases</span>ChromaDB, LanceDB, sqlite-vec — local offline options</div>
+  <div class="agent"><span class="role">Knowledge Graphs</span>Obsidian-style, MemGPT, LangGraph approaches</div>
+  <div class="agent"><span class="role">Hybrid Search</span>BM25 + semantic vectors combined</div>
+  <div class="agent"><span class="role">LLM Context Formats</span>What format does Claude prefer to read?</div>
+  <div class="agent"><span class="role">Agent Memory</span>Mem0, Zep, LangMem — production memory systems</div>
+  <div class="agent"><span class="role">SQLite Tooling</span>FTS5, sqlite-vec, WAL mode for AI dev tools</div>
+</div>
+
+<h3>The 5 Reviewer Archetypes (per round) were:</h3>
+<div class="agent-grid">
+  <div class="agent"><span class="role">Systems Engineer</span>File locking, concurrency, corruption handling</div>
+  <div class="agent"><span class="role">DX Advocate</span>Is it debuggable? Human-readable? Smooth upgrade?</div>
+  <div class="agent"><span class="role">ML Engineer</span>Does it retrieve the RIGHT sessions, not just recent?</div>
+  <div class="agent"><span class="role">Security Auditor</span>Does it leak API keys? Is it forward-compatible?</div>
+  <div class="agent"><span class="role">Skeptic</span>Is the complexity actually worth it vs. flat JSON?</div>
+</div>
+
+<!-- ── WHAT HAPPENED ── -->
+<hr>
+<h2>What Happened — Why It's Gone</h2>
+
+<div class="card red">
+  <h3>Status: <span class="badge killed">KILLED</span> — 0 agents completed</h3>
+  <p>The workflow was launched, then <strong>your session ended and restarted</strong> (you typed "continue from where you left off" in a new session). Claude Code killed the background workflow when the session died.</p>
+  <p>This is expected behavior — workflows are session-scoped. They don't persist across session restarts.</p>
+</div>
+
+<div class="stats">
+  <div><span class="count">0</span><span class="count-label">agents completed</span></div>
+  <div><span class="count">~30</span><span class="count-label">agents planned</span></div>
+  <div><span class="count">8</span><span class="count-label">phases planned</span></div>
+  <div><span class="count">3</span><span class="count-label">review rounds planned</span></div>
+</div>
+
+<!-- ── WHAT TO DO NEXT ── -->
+<hr>
+<h2>What To Do Next</h2>
+
+<div class="card green what-next">
+  <h3>Re-launch the workflow (it will start fresh)</h3>
+  <ol>
+    <li><strong>Just say "re-launch it"</strong> — Claude will re-run the same workflow script from scratch.</li>
+    <li>The workflow will take <strong>15–30 minutes</strong> to complete (it's doing a lot of parallel research and multi-round critique).</li>
+    <li><strong>Don't close the session</strong> while it runs — or it will be killed again. Keep the Claude Code window open.</li>
+    <li>When it finishes, Claude will get a notification and write the final spec to a file you can read.</li>
+  </ol>
+</div>
+
+<div class="card yellow">
+  <h3>Alternatively: faster, simpler version</h3>
+  <p>If you don't want to wait 30 minutes, Claude can do a <strong>lightweight version</strong> — research only (6 agents, ~5 min) and write a spec directly without the 3-round critique loop. Faster but less thoroughly stress-tested.</p>
+</div>
+
+<hr>
+<p style="color:#3d4263; font-size:0.8rem; text-align:center;">recall · workflow explainer · 2026-06-21</p>
+
+</body>
+</html>

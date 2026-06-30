@@ -1,0 +1,17 @@
+[package]
+name = "recall"
+version = "3.3.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "recall-sessions-rs"
+path = "src/bin/recall_sessions.rs"
+
+[[bin]]
+name = "session-start-rs"
+path = "src/bin/session_start.rs"
+
+[dependencies]
+regex = "1.12.3"
+serde_json = "1.0.149"

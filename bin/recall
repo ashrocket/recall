@@ -1,0 +1,77 @@
+#!/usr/bin/env sh
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# The /recall skill calls us with an explicit absolute project path first
+# (`recall "$PWD" <args>`). When run directly from a shell (e.g. `!recall auth`),
+# the first arg is a subcommand or search term, not a path — default the project
+# path to the current directory so `recall`, `recall list`, and `recall <term>`
+# all work without typing $PWD. Only an absolute path that is an existing
+# directory is treated as the project arg, so relative search terms (even ones
+# that match a local dir name) and `/regex/` queries are never misread.
+needs_pwd=1
+if [ "$#" -ge 1 ]; then
+  case "$1" in
+    /*) [ -d "$1" ] && needs_pwd=0 ;;
+  esac
+fi
+if [ "$needs_pwd" -eq 1 ]; then
+  set -- "$PWD" "$@"
+fi
+CWD_ARG=$1
+shift
+SUBCOMMAND=${1:-}
+
+case "$SUBCOMMAND" in
+  export|import|reset|cleanup|knowledge)
+    exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" "$@"
+    ;;
+  save)
+    shift || true
+    if [ "$#" -ge 1 ]; then
+      exec python3 "$ROOT/bin/recall-save.py" "$CWD_ARG" --name "$*"
+    fi
+    exec python3 "$ROOT/bin/recall-save.py" "$CWD_ARG"
+    ;;
+  restart)
+    shift || true
+    LAUNCH=0
+    if [ "${1:-}" = "--launch" ] || [ "${1:-}" = "-l" ]; then
+      LAUNCH=1
+      shift || true
+    fi
+    RESTART_ARG=${1:-}
+    case "$RESTART_ARG" in
+      ""|list) exec python3 "$ROOT/bin/recall-restart.py" list ;;
+      *[!0-9]*)
+        if [ "$LAUNCH" = "1" ]; then
+          exec python3 "$ROOT/bin/recall-restart.py" match --launch "$*"
+        fi
+        exec python3 "$ROOT/bin/recall-restart.py" match "$*"
+        ;;
+      *)
+        if [ "$LAUNCH" = "1" ]; then
+          exec python3 "$ROOT/bin/recall-restart.py" launch "$RESTART_ARG"
+        fi
+        exec python3 "$ROOT/bin/recall-restart.py" show "$RESTART_ARG"
+        ;;
+    esac
+    ;;
+  learn)
+    # recall-sessions.py owns learn's approve/reject flags.
+    shift || true
+    exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" learn "$@"
+    ;;
+esac
+
+FAST_BIN="$ROOT/target/release/recall-sessions-rs"
+if [ -x "$FAST_BIN" ] && [ "${RECALL_NO_FAST:-}" != "1" ]; then
+  if "$FAST_BIN" "$CWD_ARG" "$@"; then
+    exit 0
+  else
+    status=$?
+    if [ "$status" -ne 64 ]; then
+      exit "$status"
+    fi
+  fi
+fi
+exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" "$@"

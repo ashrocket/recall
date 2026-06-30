@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>recall cloud — "Git for Agent Sessions" — Design Spec</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fef9f2;
+      --bg2: #fef3e6;
+      --surface: #ffffff;
+      --surface-warm: #fffaf4;
+      --border: #f0ddd0;
+      --border-strong: #e0c8b0;
+      --text: #3d2416;
+      --text-muted: #9a7a68;
+      --text-light: #c4a898;
+      --text-bright: #1a0800;
+      --pink: #f9c0d8;
+      --pink-deep: #d6638a;
+      --lav: #d4c4f4;
+      --lav-deep: #8b6ed4;
+      --mint: #b4e8d0;
+      --mint-deep: #3a9e78;
+      --accent: #e07454;
+      --red-pen: #c0392b;
+      --sticky-yellow: #fff7b3;
+      --sticky-blue: #d8efff;
+      --sticky-pink: #ffd9eb;
+      --sticky-mint: #d7f3e8;
+      --desk: #f3dfc7;
+      --manila: #f3e0b8;
+      --shadow-soft: 0 18px 40px rgba(61, 36, 22, 0.08);
+      --shadow-paper: 0 12px 24px rgba(61, 36, 22, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Plus Jakarta Sans", sans-serif;
+      line-height: 1.65;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(249, 192, 216, 0.18), transparent 26%),
+        radial-gradient(circle at 90% 12%, rgba(212, 196, 244, 0.14), transparent 28%),
+        radial-gradient(circle at 18% 82%, rgba(180, 232, 208, 0.15), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 40%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23d8c1af' fill-opacity='0.14'%3E%3Ccircle cx='20' cy='24' r='1.2'/%3E%3Ccircle cx='82' cy='44' r='1'/%3E%3Ccircle cx='136' cy='30' r='1.2'/%3E%3Ccircle cx='46' cy='118' r='1.2'/%3E%3Ccircle cx='114' cy='92' r='1.1'/%3E%3Ccircle cx='148' cy='132' r='1.4'/%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+
+    .spec-backlink {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 30;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 24px;
+      background: rgba(254, 249, 242, 0.9);
+      border-bottom: 1px solid rgba(224, 200, 176, 0.6);
+      backdrop-filter: blur(10px);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+    }
+
+    .spec-backlink a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.18s ease;
+    }
+
+    .spec-backlink a:hover {
+      color: var(--text-bright);
+    }
+
+    .spec-backlink .sep {
+      color: var(--border-strong);
+    }
+
+    /* ── Header ── */
+    .spec-header {
+      text-align: center;
+      padding: 3rem 0 2rem;
+    }
+    .spec-header h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--text-bright);
+      margin-bottom: 0.3rem;
+    }
+    .spec-header h1 span.cloud {
+      position: relative;
+      display: inline-block;
+    }
+    .spec-header h1 span.cloud::after {
+      content: "cloud";
+      position: absolute;
+      bottom: -0.15em;
+      right: -1.8em;
+      font-family: "Caveat", cursive;
+      font-size: 0.5em;
+      font-weight: 500;
+      color: var(--lav-deep);
+      transform: rotate(-4deg);
+    }
+    .spec-subtitle {
+      font-family: "Caveat", cursive;
+      font-size: 1.5rem;
+      color: var(--pink-deep);
+      margin-bottom: 0.5rem;
+    }
+    .spec-date {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Sticky note (top summary) ── */
+    .sticky {
+      background: var(--sticky-yellow);
+      border: 1px solid rgba(200, 180, 80, 0.25);
+      border-radius: 2px;
+      padding: 1.2rem 1.5rem;
+      margin: 1.5rem 0 2rem;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.06);
+      transform: rotate(-0.5deg);
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+    .sticky strong { color: var(--text-bright); }
+    .sticky ul { margin: 0.5rem 0 0 1.2rem; }
+    .sticky li { margin-bottom: 0.2rem; }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow-soft);
+    }
+    .toc h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+    }
+    .toc ol {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .toc li {
+      margin-bottom: 0.35rem;
+      font-size: 0.92rem;
+    }
+    .toc a {
+      color: var(--lav-deep);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+    .toc a:hover { border-bottom-color: var(--lav-deep); }
+
+    /* ── Index cards (sections) ── */
+    .card {
+      background: var(--surface-warm);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-paper);
+      overflow: hidden;
+      position: relative;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 44px;
+      width: 1px;
+      height: 100%;
+      background: rgba(192, 57, 43, 0.12);
+    }
+    .card-tab {
+      display: inline-block;
+      padding: 0.4rem 1.2rem 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 4px 4px 0 0;
+      position: relative;
+      top: 0;
+      left: 1rem;
+      margin-bottom: -1px;
+    }
+    .tab-pink { background: var(--pink); color: var(--pink-deep); }
+    .tab-lav { background: var(--lav); color: var(--lav-deep); }
+    .tab-mint { background: var(--mint); color: var(--mint-deep); }
+    .tab-yellow { background: var(--sticky-yellow); color: #8a7530; }
+    .tab-blue { background: var(--sticky-blue); color: #3a6f9a; }
+
+    .card-body {
+      padding: 1.5rem 1.5rem 1.5rem 3.5rem;
+    }
+    .card-body h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+    }
+    .card-body h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin: 1.5rem 0 0.6rem;
+    }
+    .card-body p {
+      margin-bottom: 0.8rem;
+      font-size: 0.93rem;
+    }
+    .card-body ul, .card-body ol {
+      margin: 0.5rem 0 1rem 1.2rem;
+      font-size: 0.93rem;
+    }
+    .card-body li { margin-bottom: 0.3rem; }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.8rem 0 1.2rem;
+      font-size: 0.85rem;
+    }
+    th {
+      background: var(--bg2);
+      text-align: left;
+      padding: 0.5rem 0.8rem;
+      font-weight: 700;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-strong);
+    }
+    td {
+      padding: 0.45rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td strong { color: var(--text-bright); }
+
+    /* ── Code blocks ── */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      margin: 0.8rem 0 1.2rem;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);
+    }
+    code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.85em;
+      background: rgba(61, 36, 22, 0.06);
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    /* ── Architecture diagram (ASCII in pre) ── */
+    .diagram pre {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-soft);
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
+
+    /* ── Annotation (handwritten style) ── */
+    .annotation {
+      font-family: "Caveat", cursive;
+      color: var(--red-pen);
+      font-size: 1.05rem;
+    }
+
+    /* ── Side sticky notes ── */
+    .sticky-side {
+      float: right;
+      width: 180px;
+      margin: 0 -0.5rem 1rem 1rem;
+      padding: 0.8rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      border-radius: 2px;
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.06);
+      transform: rotate(1.5deg);
+    }
+    .sticky-side.blue { background: var(--sticky-blue); }
+    .sticky-side.pink { background: var(--sticky-pink); }
+    .sticky-side.mint { background: var(--sticky-mint); }
+    .sticky-side.yellow { background: var(--sticky-yellow); }
+
+    /* ── Status badge ── */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-v1 { background: var(--mint); color: var(--mint-deep); }
+    .badge-v2 { background: var(--lav); color: var(--lav-deep); }
+
+    /* ── Footer ── */
+    .spec-footer {
+      text-align: center;
+      padding: 3rem 0 1rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+    .spec-footer a { color: var(--lav-deep); text-decoration: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .page { padding: 1rem; }
+      .spec-header h1 { font-size: 1.6rem; }
+      .card-body { padding: 1rem 1rem 1rem 2.5rem; }
+      .sticky-side { float: none; width: 100%; margin: 0.5rem 0 1rem; }
+      pre { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="spec-backlink">
+    <a href="index.html">recall</a>
+    <span class="sep">/</span>
+    <a href="cloud.html">cloud</a>
+    <span class="sep">/</span>
+    <span style="color: var(--text-light);">spec</span>
+  </div>
+
+  <div class="page" style="padding-top: 3.5rem;">
+
+    <!-- Header -->
+    <header class="spec-header">
+      <h1>recall <span class="cloud">&nbsp;</span></h1>
+      <p class="spec-subtitle">"Git for Agent Sessions"</p>
+      <p class="spec-date">Design Spec &mdash; March 30, 2026 &mdash; v1</p>
+    </header>
+
+    <!-- Summary sticky -->
+    <div class="sticky">
+      <strong>TL;DR:</strong> A $1.50/quarter cloud service that stores versioned agent session data in Cloudflare R2. Push/pull/log semantics over a REST API. Stripe billing. Open source &mdash; use ours, self-host, or resell.
+      <ul>
+        <li>Cloudflare Worker + R2 + KV &mdash; $0 baseline cost</li>
+        <li>Profitable from user #1 (~$0.70/user/quarter margin)</li>
+        <li>5-tier rate limiting prevents abuse</li>
+        <li>R2 object versioning = the VCS (not actual git)</li>
+      </ul>
+    </div>
+
+    <!-- TOC -->
+    <nav class="toc">
+      <h2>Sections</h2>
+      <ol>
+        <li><a href="#arch">Architecture</a></li>
+        <li><a href="#api">API Surface</a></li>
+        <li><a href="#storage">Storage Tiers</a></li>
+        <li><a href="#rate">Rate Limiting &amp; Cost Protection</a></li>
+        <li><a href="#billing">Stripe Billing &amp; Lifecycle</a></li>
+        <li><a href="#configs">Agent Config Versioning</a></li>
+        <li><a href="#security">Security &amp; Data Isolation</a></li>
+        <li><a href="#microsite">Microsite &amp; Self-Host</a></li>
+        <li><a href="#plugin">Plugin Integration</a></li>
+        <li><a href="#files">File Structure</a></li>
+        <li><a href="#scaling">Scaling Path</a></li>
+        <li><a href="#scope">v1 vs v2 Scope</a></li>
+      </ol>
+    </nav>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 1: Architecture -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-pink">Architecture</div>
+    <section class="card" id="arch">
+      <div class="card-body">
+        <h2>Architecture</h2>
+
+        <p>The cloud service is a <strong>new provider adapter</strong> for the existing sync engine. Same YAML format, same <code>.recallignore</code>, same secret scanning. The cloud adapter translates push/pull into HTTP REST calls.</p>
+
+        <pre>/recall sync init --github      &rarr; user's GitHub repo (free, actual git)
+/recall sync init --gitlab      &rarr; user's GitLab repo (free, actual git)
+/recall sync init --bitbucket   &rarr; user's Bitbucket repo (free, actual git)
+/recall sync init --cloud       &rarr; our managed R2 backend ($1.50/quarter)</pre>
+
+        <div class="diagram">
+          <pre>
+&#9484;&#9472; Sync Engine (existing) &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                                                    &#9474;
+&#9474;  Provider adapters:                                &#9474;
+&#9474;  &#9500;&#9472;&#9472; git (GitHub, GitLab, BB) &rarr; git push/pull    &#9474;
+&#9474;  &#9492;&#9472;&#9472; cloud (NEW) &rarr; HTTP REST to Worker          &#9474;
+&#9474;                                                    &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                    &#9474; HTTPS
+                    &#9660;
+&#9484;&#9472; Cloudflare Worker &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                                                    &#9474;
+&#9474;  Auth &rarr; Rate Limiter &rarr; Route Handler           &#9474;
+&#9474;  (API key)  (KV)         (PUT/GET/LIST/DELETE)    &#9474;
+&#9474;                                                    &#9474;
+&#9474;  Stripe Webhook (/webhook/stripe)                 &#9474;
+&#9474;                                                    &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;   &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
+&#9474;  &#9474; KV Store  &#9474;   &#9474; R2 (versioning enabled)  &#9474;  &#9474;
+&#9474;  &#9474; api keys  &#9474;   &#9474; /{user_id}/              &#9474;  &#9474;
+&#9474;  &#9474; rate ctrs &#9474;   &#9474;   restarts/*.yaml        &#9474;  &#9474;
+&#9474;  &#9474; usage     &#9474;   &#9474;   learnings/*.yaml       &#9474;  &#9474;
+&#9474;  &#9474; tier info &#9474;   &#9474;   adm/*.yaml             &#9474;  &#9474;
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;   &#9474;   sops/*.yaml            &#9474;  &#9474;
+&#9474;                   &#9474;   sessions/*.yaml        &#9474;  &#9474;
+&#9474;                   &#9474;   agent-configs/*.yaml   &#9474;  &#9474;
+&#9474;                   &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</pre>
+        </div>
+
+        <h3>Why Cloudflare, not AWS</h3>
+        <table>
+          <tr><th></th><th>Cloudflare Worker + R2</th><th>AWS ECS Fargate + S3</th></tr>
+          <tr><td><strong>Baseline</strong></td><td>$0</td><td>~$23/mo</td></tr>
+          <tr><td><strong>Egress</strong></td><td>$0</td><td>$0.09/GB</td></tr>
+          <tr><td><strong>Profitable from</strong></td><td>User #1</td><td>~User #200</td></tr>
+          <tr><td><strong>Deploy</strong></td><td><code>wrangler deploy</code></td><td>Container + ALB + IAM + ECR</td></tr>
+        </table>
+
+        <h3>R2 Object Versioning = The VCS</h3>
+        <p>No git server. No commits. No refs. R2's built-in object versioning provides automatic version history, restore any previous version, list all versions, and soft delete with retention. Each file is a complete, self-contained YAML document. No diffs, no deltas, no changelogs.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 2: API -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-lav">API</div>
+    <section class="card" id="api">
+      <div class="card-body">
+        <h2>API Surface</h2>
+
+        <div class="sticky-side blue">
+          <span class="annotation">All endpoints except /webhook/stripe require Bearer token auth</span>
+        </div>
+
+        <pre>PUT    /v1/files/{path}              Store a file (R2 auto-versions)
+GET    /v1/files/{path}              Get latest version
+GET    /v1/files/{path}?version={n}  Get specific version
+GET    /v1/files/{path}/versions     List all versions of a file
+GET    /v1/files/?after={timestamp}  List files changed since
+DELETE /v1/files/{path}              Soft delete (versions retained)
+DELETE /v1/files/{path}/versions     Trim old versions (keep=N)
+GET    /v1/status                    Storage, rate limits, billing
+GET    /v1/export                    Signed R2 URL for full download
+POST   /v1/auth/rotate               Rotate API key
+POST   /v1/webhook/stripe            Stripe billing events</pre>
+
+        <h3>What the user types vs. what happens</h3>
+        <table>
+          <tr><th>Local command</th><th>Cloud call</th><th>What happens</th></tr>
+          <tr><td><code>/recall sync push</code></td><td><code>PUT /v1/files/*</code></td><td>Upload changed files since last push</td></tr>
+          <tr><td><code>/recall sync pull</code></td><td><code>GET /v1/files/?after={ts}</code></td><td>Download files changed since last pull</td></tr>
+          <tr><td><code>/recall sync status</code></td><td><code>GET /v1/status</code></td><td>Show storage, limits, billing</td></tr>
+          <tr><td><code>/recall cloud export</code></td><td><code>GET /v1/export</code></td><td>Download everything as tarball</td></tr>
+        </table>
+
+        <h3>Push/Pull Protocol</h3>
+        <p><strong>Push (fast-forward only):</strong> Sync engine gathers changed files &rarr; secret scan locally &rarr; <code>.recallignore</code> filter &rarr; PUT each file &rarr; R2 auto-versions &rarr; record timestamp.</p>
+        <p><strong>Pull:</strong> GET files changed since last pull timestamp &rarr; download each &rarr; write to local directories &rarr; regenerate index.</p>
+        <p>No merge. No conflict resolution. Two machines create different files with unique timestamps. Latest write wins; versions are retained so nothing is lost.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 3: Storage Tiers -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-mint">Storage</div>
+    <section class="card" id="storage">
+      <div class="card-body">
+        <h2>Storage Tiers</h2>
+
+        <table>
+          <tr><th>Tier</th><th>What syncs</th><th>Size per session</th></tr>
+          <tr><td><strong>Lite</strong> (default)</td><td>Distilled restarts + index metadata</td><td>~2-5KB</td></tr>
+          <tr><td><strong>Standard</strong></td><td>Lite + raw JSONL (expires 30 days)</td><td>~1-10MB</td></tr>
+          <tr><td><strong>Full</strong></td><td>Everything, against 10GB cap</td><td>~1-10MB, persists</td></tr>
+        </table>
+
+        <pre>sync:
+  provider: cloud
+  tier: lite
+  include:
+    adm: true
+    restarts: true
+    learnings: true
+    sops: true
+    session_metadata: true
+    agent_configs: true
+    transcripts: false</pre>
+
+        <p><strong>10GB cap per user</strong> (includes R2 version history). When full: <code>507 Insufficient Storage</code>. Version cleanup via <code>DELETE /v1/files/{path}/versions?keep=3</code>.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 4: Rate Limiting -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-pink">Cost Protection</div>
+    <section class="card" id="rate">
+      <div class="card-body">
+        <h2>Rate Limiting &amp; Cost Protection</h2>
+
+        <div class="sticky-side mint">
+          <span class="annotation">Five stacking windows &mdash; abuse requires sustained cost across ALL time windows</span>
+        </div>
+
+        <table>
+          <tr><th>Window</th><th>Max requests</th><th>Max IN</th><th>Max OUT</th><th>Why</th></tr>
+          <tr><td><strong>Session</strong> (5hr)</td><td>50</td><td>20MB</td><td>50MB</td><td>Matches agent session</td></tr>
+          <tr><td><strong>Hourly</strong></td><td>30</td><td>10MB</td><td>30MB</td><td>Burst prevention</td></tr>
+          <tr><td><strong>Daily</strong></td><td>200</td><td>50MB</td><td>100MB</td><td>~4 sessions/day</td></tr>
+          <tr><td><strong>Weekly</strong></td><td>800</td><td>200MB</td><td>500MB</td><td>Heavy dev week</td></tr>
+          <tr><td><strong>Monthly</strong></td><td>2,000</td><td>500MB</td><td>1GB</td><td>Full billing period</td></tr>
+        </table>
+
+        <p><strong>Enforcement:</strong> Request &rarr; Auth &rarr; Check all 5 windows &rarr; Process or 429. Counters stored in KV with TTL-based auto-cleanup.</p>
+
+        <p><strong>Export exemption:</strong> <code>GET /v1/export</code> always works regardless of rate limits. Your data is your data. Limited to 1/day to prevent CDN abuse.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 5: Billing -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-yellow">Billing</div>
+    <section class="card" id="billing">
+      <div class="card-body">
+        <h2>Stripe Billing &amp; Account Lifecycle</h2>
+
+        <div class="sticky-side pink">
+          <span class="annotation">$1.50/quarter = $0.50/month effective &mdash; auto-cancels if you stop using it</span>
+        </div>
+
+        <h3>Economics</h3>
+        <table>
+          <tr><th>Item</th><th>Cost/user/quarter</th></tr>
+          <tr><td>Stripe fee (2.9% + $0.30)</td><td>$0.34</td></tr>
+          <tr><td>R2 storage (10GB, 3mo)</td><td>~$0.45</td></tr>
+          <tr><td>Worker compute</td><td>~$0.01</td></tr>
+          <tr><td><strong>Total cost</strong></td><td><strong>~$0.80</strong></td></tr>
+          <tr><td><strong>Revenue</strong></td><td><strong>$1.50</strong></td></tr>
+          <tr><td><strong>Profit</strong></td><td><strong>~$0.70</strong></td></tr>
+        </table>
+
+        <h3>Checkout Flow</h3>
+        <pre>User visits cloud.html
+  &rarr; Stripe Checkout ($1.50/quarter)
+  &rarr; Webhook: checkout.session.completed
+    &rarr; Generate API key (32-byte hex)
+    &rarr; Store SHA-256(key + salt) in KV
+    &rarr; Show key once on post-checkout page
+  &rarr; echo "sk_recall_..." &gt; ~/.env/recall/api-key
+  &rarr; /recall sync init --cloud</pre>
+
+        <h3>Auto-Cancel on Inactivity</h3>
+        <p>On <code>invoice.upcoming</code> webhook: check if any API requests in last 60 days. If no &rarr; cancel subscription, retain data for 30 days grace, then 7 more days export-only, then delete.</p>
+
+        <h3>Account States</h3>
+        <table>
+          <tr><th>State</th><th>Push/Pull</th><th>Export</th><th>Data retained</th></tr>
+          <tr><td><strong>Active</strong></td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td><strong>Inactive</strong></td><td>No</td><td>Yes</td><td>30 days</td></tr>
+          <tr><td><strong>Expired</strong></td><td>No</td><td>Yes</td><td>7 more days</td></tr>
+          <tr><td><strong>Deleted</strong></td><td>No</td><td>No</td><td>No</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 6: Agent Config Versioning -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-lav">Configs</div>
+    <section class="card" id="configs">
+      <div class="card-body">
+        <h2>Agent Config Versioning</h2>
+
+        <p>A new sync category for AGENTS.md / CLAUDE.md files. Snapshots taken on session start, stored as versioned documents.</p>
+
+        <pre># agent-configs/CLAUDE.md/2026-03-30T08:01:00.yaml
+file: CLAUDE.md
+project: myapp
+snapshot_date: 2026-03-30T08:01:00
+session_id: abc123
+changed_by: agent:claude-opus-4-6
+diff_summary: "Added 3 rules about ArangoDB env vars"
+content: |
+  # full file content at this point in time</pre>
+
+        <h3>Commands</h3>
+        <pre>/recall configs                  # list tracked config files
+/recall configs diff             # changes since last session
+/recall configs rollback 2       # restore from 2 snapshots ago</pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 7: Security -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-mint">Security</div>
+    <section class="card" id="security">
+      <div class="card-body">
+        <h2>Security &amp; Data Isolation</h2>
+
+        <ul>
+          <li>Every R2 object prefixed with <code>/{user_id}/</code> &mdash; hard isolation</li>
+          <li>Worker never serves objects outside authenticated user's prefix</li>
+          <li>No admin API, no cross-user queries</li>
+          <li>HTTPS only (Cloudflare enforces)</li>
+          <li>No PII beyond email (Stripe billing only)</li>
+          <li>Session content is opaque &mdash; stored, not parsed</li>
+        </ul>
+
+        <h3>API Key Security</h3>
+        <pre>raw_key  = crypto.randomBytes(32).hex()  &rarr; shown once
+key_hash = SHA-256(raw_key + SALT)       &rarr; stored in KV</pre>
+        <p>Raw key never stored. Salt is a Worker secret. Rotation via <code>POST /v1/auth/rotate</code>.</p>
+
+        <h3>If a Key Leaks</h3>
+        <ol>
+          <li>Attacker limited to that user's data only</li>
+          <li>Rate limits still apply &mdash; can't exfiltrate fast</li>
+          <li>User rotates key immediately</li>
+          <li>Storage cap prevents abuse as free storage</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 8: Microsite -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-yellow">Microsite</div>
+    <section class="card" id="microsite">
+      <div class="card-body">
+        <h2>Microsite &amp; Self-Host</h2>
+
+        <pre>docs/
+&#9500;&#9472;&#9472; index.html       &larr; existing recall microsite
+&#9500;&#9472;&#9472; cloud.html       &larr; NEW: service + Stripe checkout
+&#9492;&#9472;&#9472; self-host.html   &larr; NEW: deploy-your-own guide</pre>
+
+        <h3>cloud.html</h3>
+        <p>One paragraph, pricing ($0.50/mo billed $1.50/quarter), Stripe Checkout button, post-payment API key display, link to self-host guide.</p>
+
+        <h3>self-host.html</h3>
+        <pre>1. Fork the repo
+2. Create Cloudflare account (free)
+3. Create R2 bucket (versioning) + KV namespace
+4. Create Stripe account + product
+5. wrangler secret put STRIPE_SECRET_KEY
+   wrangler secret put STRIPE_WEBHOOK_SECRET
+   wrangler secret put API_KEY_SALT
+6. wrangler deploy
+7. Configure Stripe webhook URL
+8. Done &mdash; selling under your own brand</pre>
+
+        <p><strong>Open source safety:</strong> No credentials in code, ever. All secrets via <code>wrangler secret put</code>.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 9: Plugin Integration -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-blue">Plugin</div>
+    <section class="card" id="plugin">
+      <div class="card-body">
+        <h2>Recall Plugin Integration</h2>
+
+        <h3>Config</h3>
+        <pre># ~/.config/recall/sync.yaml
+sync:
+  provider: cloud
+  endpoint: https://recall-api.recall.workers.dev
+  api_key_file: ~/.env/recall/api-key
+  tier: lite
+  auto_sync: true</pre>
+
+        <h3>New Commands</h3>
+        <table>
+          <tr><th>Command</th><th>What it does</th></tr>
+          <tr><td><code>/recall cloud setup</code></td><td>Prompt for API key, write config, test</td></tr>
+          <tr><td><code>/recall cloud status</code></td><td>Storage, rate limits, billing</td></tr>
+          <tr><td><code>/recall cloud export</code></td><td>Download full data tarball</td></tr>
+        </table>
+
+        <h3>Existing Commands + Cloud</h3>
+        <table>
+          <tr><th>Command</th><th>Cloud behavior</th></tr>
+          <tr><td><code>/recall sync push</code></td><td>PUT changed files to R2</td></tr>
+          <tr><td><code>/recall sync pull</code></td><td>GET files since last pull</td></tr>
+          <tr><td><code>/recall sync push --dry-run</code></td><td>Show what would push</td></tr>
+          <tr><td><code>/recall sync --verify</code></td><td>Confirm all data pushed</td></tr>
+          <tr><td><code>/recall sync pause/resume</code></td><td>Toggle auto-sync</td></tr>
+        </table>
+
+        <p><strong>Local always works.</strong> Cloud is additive. Sync failures never block the user.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 10: File Structure -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-pink">Files</div>
+    <section class="card" id="files">
+      <div class="card-body">
+        <h2>File Structure</h2>
+
+        <pre>recall/
+&#9500;&#9472;&#9472; worker/                        # NEW: Cloudflare Worker
+&#9474;   &#9500;&#9472;&#9472; src/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; index.ts               # Entrypoint, router
+&#9474;   &#9474;   &#9500;&#9472;&#9472; auth.ts                # API key validation
+&#9474;   &#9474;   &#9500;&#9472;&#9472; rate-limiter.ts        # 5-window rate limiting
+&#9474;   &#9474;   &#9500;&#9472;&#9472; files.ts               # R2 CRUD
+&#9474;   &#9474;   &#9500;&#9472;&#9472; stripe.ts              # Webhook handler
+&#9474;   &#9474;   &#9492;&#9472;&#9472; export.ts              # Signed URL generation
+&#9474;   &#9500;&#9472;&#9472; wrangler.toml              # R2 + KV bindings
+&#9474;   &#9500;&#9472;&#9472; package.json
+&#9474;   &#9492;&#9472;&#9472; tsconfig.json
+&#9500;&#9472;&#9472; lib/
+&#9474;   &#9500;&#9472;&#9472; sync_cloud.py              # NEW: cloud adapter
+&#9474;   &#9492;&#9472;&#9472; sync.py                    # MOD: register cloud
+&#9500;&#9472;&#9472; docs/
+&#9474;   &#9500;&#9472;&#9472; cloud.html                 # NEW: service page
+&#9474;   &#9492;&#9472;&#9472; self-host.html             # NEW: deploy guide
+&#9492;&#9472;&#9472; wrangler.toml                  # existing (microsite)</pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 11: Scaling -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-lav">Scaling</div>
+    <section class="card" id="scaling">
+      <div class="card-body">
+        <h2>Scaling Path</h2>
+
+        <table>
+          <tr><th>Users</th><th>Est. req/day</th><th>Action</th></tr>
+          <tr><td>0 &ndash; 500</td><td>&lt;10k</td><td>Free tier, no action</td></tr>
+          <tr><td>500 &ndash; 2,000</td><td>10k &ndash; 50k</td><td>Workers paid plan ($5/mo)</td></tr>
+          <tr><td>2,000 &ndash; 5,000</td><td>50k &ndash; 100k</td><td>Monitor, approaching limit</td></tr>
+          <tr><td>5,000+</td><td>&gt;100k</td><td>Split read/write Workers</td></tr>
+        </table>
+
+        <p>At 5,000 users: $10,000/quarter revenue. Infra: ~$50/month. Comfortable margin.</p>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SECTION 12: Scope -->
+    <!-- ════════════════════════════════════════ -->
+    <div class="card-tab tab-mint">Scope</div>
+    <section class="card" id="scope">
+      <div class="card-body">
+        <h2>v1 vs v2</h2>
+
+        <h3><span class="badge badge-v1">v1</span> This spec</h3>
+        <ul>
+          <li>Cloudflare Worker with auth, rate limiting, R2 storage</li>
+          <li>Stripe quarterly billing with auto-cancel on inactivity</li>
+          <li>Cloud provider adapter in sync engine</li>
+          <li>cloud.html and self-host.html pages</li>
+          <li>Agent config snapshotting</li>
+          <li><code>/recall cloud setup</code>, <code>status</code>, <code>export</code> commands</li>
+          <li>Open source with self-host documentation</li>
+        </ul>
+
+        <h3><span class="badge badge-v2">v2</span> Future</h3>
+        <ul>
+          <li>Encryption at rest (client-side, before push)</li>
+          <li>Server-side full-text search</li>
+          <li>Usage analytics dashboard</li>
+          <li>Team/shared sync (multi-user)</li>
+          <li>Cloudflare affiliate integration</li>
+          <li>Continuous sync daemon</li>
+          <li>Webhook notifications</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="spec-footer">
+      <p>recall cloud &mdash; <a href="https://github.com/ashrocket/recall">ashrocket/recall</a> &mdash; MIT License</p>
+      <p style="margin-top: 0.3rem; font-family: Caveat, cursive; font-size: 1rem; color: var(--pink-deep);">
+        "Git for Agent Sessions" &mdash; your memory, everywhere.
+      </p>
+    </footer>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+name = "recall-cloud"
+main = "src/index.ts"
+compatibility_date = "2024-05-12"
+
+# Non-secret config — replace after creating Products/Prices in Stripe dashboard
+[vars]
+STRIPE_PRICE_QUARTERLY = "price_1TH4UgA7KRllu8sAXoqsTQNE"
+STRIPE_PRICE_YEARLY = "price_1TH4UiA7KRllu8sALP4rFIEd"
+SITE_URL = "https://recall.raiteri.net"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+#   STRIPE_SECRET_KEY       — Stripe secret API key
+#   STRIPE_WEBHOOK_SECRET   — Stripe webhook signing secret
+#   API_KEY_SALT            — random string for hashing API keys
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "recall-store"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "e8f4f6e83f5a4325a0cb277452f21138"

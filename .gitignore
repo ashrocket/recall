@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test data
+*.jsonl
+recall-index.json
+.claude/
+
+# User-generated session restart prompts (not source code)
+restarts/
+
+# Worker dependencies
+worker/node_modules/
+
+# Wrangler local cache (created by `wrangler pages deploy`, etc.)
+.wrangler/
+
+# Review/coordination docs (one-time, not part of the project)
+ReviewCoord.md
+
+# Other AI tool scratch dirs
+.adal/
+.agents/
+.augment/
+.bob/
+.codebuddy/
+.commandcode/
+.continue/
+.cortex/
+.crush/
+.factory/
+.goose/
+.iflow/
+.junie/
+.kilocode/
+.kiro/
+.kode/
+.mcpjam/
+.mux/
+.neovate/
+.openhands/
+.pi/
+.pochi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.vibe/
+.windsurf/
+.zencoder/
+
+# Rust
+target/

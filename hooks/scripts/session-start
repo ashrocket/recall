@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+FAST_BIN="$ROOT/target/release/session-start-rs"
+SYNC_CONFIG="$HOME/.config/recall/sync.yaml"
+if [ -x "$FAST_BIN" ] && [ "${RECALL_NO_FAST:-}" != "1" ] && [ -z "${RECALL_SYNC_REPO:-}" ] && [ ! -f "$SYNC_CONFIG" ]; then
+  if "$FAST_BIN" "$@"; then
+    exit 0
+  else
+    status=$?
+    if [ "$status" -ne 64 ]; then
+      exit "$status"
+    fi
+  fi
+fi
+exec python3 "$ROOT/hooks/scripts/session-start.py" "$@"

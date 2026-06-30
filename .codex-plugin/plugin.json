@@ -1,0 +1,42 @@
+{
+  "name": "recall",
+  "version": "3.3.0",
+  "description": "Consistent context across work sessions. Accumulate, distill, restart.",
+  "author": {
+    "name": "ashrocket collective",
+    "url": "https://github.com/ashrocket"
+  },
+  "homepage": "https://github.com/ashrocket/recall",
+  "repository": "https://github.com/ashrocket/recall",
+  "license": "MIT",
+  "keywords": [
+    "session",
+    "restart",
+    "context",
+    "memory",
+    "agent"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "recall",
+    "shortDescription": "Search, save, and restart session memory",
+    "longDescription": "recall indexes local coding sessions, surfaces useful past context, tracks repeated failures, and saves restart prompts so work can continue across context limits.",
+    "developerName": "ashrocket collective",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/ashrocket/recall",
+    "privacyPolicyURL": "https://github.com/ashrocket/recall#readme",
+    "termsOfServiceURL": "https://github.com/ashrocket/recall/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Search my previous recall sessions.",
+      "Save this session as a restart prompt.",
+      "Resume from my latest recall checkpoint."
+    ],
+    "brandColor": "#F0A050",
+    "screenshots": []
+  }
+}
