@@ -781,6 +781,163 @@ class TestCmdList:
         out = capsys.readouterr().out
         assert "restart" in out.lower()
         assert "<name>" in out
+        assert "delete" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# cmd_summary
+# ---------------------------------------------------------------------------
+
+class TestCmdSummary:
+    def _make_args(self):
+        return argparse.Namespace()
+
+    def test_shows_compact_numbered_summary_with_delete_hint(self, capsys):
+        mod = _import_recall_restart()
+        entry = {
+            "id": 1,
+            "summary": "fix auth",
+            "status": "saved",
+            "role": "lead",
+            "working_directory": "/tmp/app",
+            "date": "2026-07-01",
+            "prompt_file": "",
+        }
+        with mock.patch.object(mod, "ordered_display_entries", return_value=[(1, entry, "proj")]), \
+             mock.patch.object(mod, "get_project_folder", return_value="proj"):
+            mod.cmd_summary(self._make_args())
+
+        out = capsys.readouterr().out
+        assert "Restart Summary" in out
+        assert "1  2026-07-01" in out
+        assert "fix auth" in out
+        assert "Delete: /recall restart delete" in out
+
+    def test_shows_no_entries_message_when_empty(self, capsys):
+        mod = _import_recall_restart()
+        with mock.patch.object(mod, "ordered_display_entries", return_value=[]), \
+             mock.patch.object(mod, "get_project_folder", return_value="proj"):
+            mod.cmd_summary(self._make_args())
+
+        out = capsys.readouterr().out
+        assert "No restart entries" in out
+
+
+# ---------------------------------------------------------------------------
+# cmd_delete
+# ---------------------------------------------------------------------------
+
+class TestCmdDelete:
+    def _make_args(self, target):
+        return argparse.Namespace(target=target)
+
+    def test_deletes_by_display_position_and_unlinks_prompt(self, tmp_path, capsys):
+        mod = _import_recall_restart()
+        project_dir = tmp_path / "project"
+        restarts_dir = project_dir / "recall-restarts"
+        restarts_dir.mkdir(parents=True)
+        prompt = restarts_dir / "old.prompt"
+        prompt.write_text("restart here")
+
+        entry = {
+            "id": 1,
+            "summary": "old checkpoint",
+            "prompt_file": "recall-restarts/old.prompt",
+            "working_directory": "/tmp/app",
+        }
+        other = {"id": 2, "summary": "keep", "prompt_file": "", "working_directory": "/tmp/app"}
+        saved = []
+
+        with mock.patch.object(mod, "get_project_folder", return_value="proj"), \
+             mock.patch.object(mod, "ordered_display_entries", return_value=[(1, entry, "proj"), (2, other, "proj")]), \
+             mock.patch.object(mod, "load_agents", return_value=[entry, other]), \
+             mock.patch.object(mod, "save_agents", side_effect=lambda agents, pf: saved.append((agents, pf))), \
+             mock.patch.object(mod, "get_project_dir", return_value=project_dir), \
+             mock.patch.object(mod, "get_restarts_dir", return_value=restarts_dir):
+            mod.cmd_delete(self._make_args("1"))
+
+        assert not prompt.exists()
+        assert saved == [([other], "proj")]
+        out = capsys.readouterr().out
+        assert "Deleted restart 1: old checkpoint" in out
+        assert "Prompt file deleted" in out
+
+    def test_deletes_by_unique_name_match(self, tmp_path, capsys):
+        mod = _import_recall_restart()
+        project_dir = tmp_path / "project"
+        restarts_dir = project_dir / "recall-restarts"
+        restarts_dir.mkdir(parents=True)
+        prompt = restarts_dir / "auth.prompt"
+        prompt.write_text("restart here")
+
+        entry = {
+            "id": 3,
+            "name": "Auth Refactor",
+            "summary": "auth work",
+            "prompt_file": "recall-restarts/auth.prompt",
+            "working_directory": "/tmp/app",
+        }
+        saved = []
+
+        with mock.patch.object(mod, "get_project_folder", return_value="proj"), \
+             mock.patch.object(mod, "collect_all_entries", return_value=[(entry, "proj")]), \
+             mock.patch.object(mod, "load_agents", return_value=[entry]), \
+             mock.patch.object(mod, "save_agents", side_effect=lambda agents, pf: saved.append((agents, pf))), \
+             mock.patch.object(mod, "get_project_dir", return_value=project_dir), \
+             mock.patch.object(mod, "get_restarts_dir", return_value=restarts_dir):
+            mod.cmd_delete(self._make_args("auth-refactor"))
+
+        assert not prompt.exists()
+        assert saved == [([], "proj")]
+        assert "Deleted restart auth-refactor" in capsys.readouterr().out
+
+    def test_ambiguous_text_match_exits_without_deleting(self, capsys):
+        mod = _import_recall_restart()
+        first = {"id": 1, "summary": "auth one", "prompt_file": "", "working_directory": "/tmp/a"}
+        second = {"id": 2, "summary": "auth two", "prompt_file": "", "working_directory": "/tmp/b"}
+        entries = [(first, "proj"), (second, "proj")]
+
+        with mock.patch.object(mod, "get_project_folder", return_value="proj"), \
+             mock.patch.object(mod, "collect_all_entries", return_value=entries), \
+             mock.patch.object(mod, "ordered_display_entries", return_value=[(1, first, "proj"), (2, second, "proj")]), \
+             mock.patch.object(mod, "save_agents") as mock_save:
+            with pytest.raises(SystemExit):
+                mod.cmd_delete(self._make_args("auth"))
+
+        mock_save.assert_not_called()
+        out = capsys.readouterr().out
+        assert "matched 2 entries" in out
+        assert "/recall restart delete <number>" in out
+
+    def test_external_prompt_file_is_not_unlinked(self, tmp_path, capsys):
+        mod = _import_recall_restart()
+        project_dir = tmp_path / "project"
+        restarts_dir = project_dir / "recall-restarts"
+        restarts_dir.mkdir(parents=True)
+        outside = tmp_path / "outside.prompt"
+        outside.write_text("external prompt")
+
+        entry = {
+            "id": 1,
+            "summary": "external prompt",
+            "prompt_file": str(outside),
+            "working_directory": "/tmp/app",
+        }
+        saved = []
+
+        with mock.patch.object(mod, "get_project_folder", return_value="proj"), \
+             mock.patch.object(mod, "ordered_display_entries", return_value=[(1, entry, "proj")]), \
+             mock.patch.object(mod, "load_agents", return_value=[entry]), \
+             mock.patch.object(mod, "save_agents", side_effect=lambda agents, pf: saved.append((agents, pf))), \
+             mock.patch.object(mod, "get_project_dir", return_value=project_dir), \
+             mock.patch.object(mod, "get_restarts_dir", return_value=restarts_dir):
+            mod.cmd_delete(self._make_args("1"))
+
+        assert outside.exists()
+        assert saved == [([], "proj")]
+        out = capsys.readouterr().out
+        assert "Prompt file skipped" in out
+        assert "outside recall-restarts" in out
 
 
 # ---------------------------------------------------------------------------

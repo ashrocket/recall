@@ -5,9 +5,11 @@ Recall restart engine — save, list, launch, and match restart entries.
 Usage:
   recall-restart.py save <working_dir> <summary> [flags]
   recall-restart.py list
+  recall-restart.py summary
   recall-restart.py show <number>
   recall-restart.py launch <number>
   recall-restart.py match [--launch] <text>
+  recall-restart.py delete <number|name|text>
 
 Manages agent restart entries stored in agents.json per-project.
 """
@@ -433,6 +435,187 @@ def ordered_display_entries(project_folder: str) -> list:
     return [(pos, entry, pf) for pos, (entry, pf) in enumerate(sorted_entries, 1)]
 
 
+def find_matching_entries(text: str, project_folder: str) -> list:
+    """Return restart entries matching *text*.
+
+    Exact named-session token matches win over broader summary/path/content
+    matches so commands such as ``restart auth`` remain unambiguous when
+    possible.
+    """
+    search_text = text.lower()
+    all_entries = collect_all_entries(project_folder)
+
+    exact_name_matches = []
+    matches = []
+    for entry, pf in all_entries:
+        session_name = entry_session_name(entry)
+        if search_text == session_name.lower():
+            exact_name_matches.append((entry, pf))
+            continue
+
+        if search_text in session_name.lower():
+            matches.append((entry, pf))
+            continue
+
+        if search_text in entry.get('prompt_file', '').lower():
+            matches.append((entry, pf))
+            continue
+
+        # Search in summary
+        if search_text in entry.get('summary', '').lower():
+            matches.append((entry, pf))
+            continue
+
+        # Search in prompt file contents
+        prompt_file = entry.get('prompt_file', '')
+        if prompt_file:
+            prompt_path = get_project_dir(pf) / prompt_file
+            if prompt_path.exists():
+                try:
+                    content = prompt_path.read_text()[:2000]
+                    if search_text in content.lower():
+                        matches.append((entry, pf))
+                        continue
+                except (IOError, OSError):
+                    pass
+
+        # Search in goal
+        if search_text in entry.get('goal', '').lower():
+            matches.append((entry, pf))
+            continue
+
+    return exact_name_matches or matches
+
+
+def _position_lookup(project_folder: str) -> dict:
+    """Return ``(project_folder, internal id) -> display position`` for hints."""
+    lookup = {}
+    for pos, entry, pf in ordered_display_entries(project_folder):
+        eid = entry.get('id')
+        if eid is not None:
+            lookup[(pf, eid)] = pos
+    return lookup
+
+
+def _print_match_choices(matches: list, project_folder: str):
+    """Print compact restart choices with their current list positions."""
+    positions = _position_lookup(project_folder)
+    for entry, pf in matches:
+        eid = entry_session_name(entry)
+        pos = positions.get((pf, entry.get('id')))
+        pos_label = f"{pos}  " if pos is not None else ""
+        summary = entry.get('summary', '')
+        role = entry.get('role', '')
+        wd = entry.get('working_directory', '')
+        home = str(Path.home())
+        if wd.startswith(home):
+            wd = '~' + wd[len(home):]
+        print(f"  {pos_label}{eid}  [{role}]  {summary}")
+        print(f"       {DIM}{wd}{RESET}")
+
+
+def _same_restart_entry(candidate: dict, target: dict) -> bool:
+    """Return whether *candidate* is the same stored restart entry as *target*."""
+    candidate_id = candidate.get('id')
+    target_id = target.get('id')
+    if candidate_id is not None and target_id is not None:
+        return candidate_id == target_id
+    return candidate == target
+
+
+def _remove_restart_entry(entry: dict, project_folder: str) -> bool:
+    """Remove *entry* from *project_folder*'s agents.json."""
+    agents = load_agents(project_folder)
+    remaining = []
+    removed = False
+    for candidate in agents:
+        if not removed and _same_restart_entry(candidate, entry):
+            removed = True
+            continue
+        remaining.append(candidate)
+
+    if removed:
+        save_agents(remaining, project_folder)
+    return removed
+
+
+def _prompt_path_for_deletion(entry: dict, project_folder: str) -> tuple[Path | None, str]:
+    """Return a safe prompt path to unlink, or a skip reason.
+
+    Deletion is intentionally limited to files under this project's
+    ``recall-restarts`` directory. Older entries may contain absolute prompt
+    paths; those are left in place to avoid deleting unrelated files.
+    """
+    prompt_file = entry.get('prompt_file', '')
+    if not prompt_file:
+        return None, 'no prompt file recorded'
+
+    prompt_path = _resolve_prompt_path(entry, project_folder)
+    if not prompt_path:
+        return None, 'prompt file not found'
+
+    try:
+        resolved = Path(prompt_path).resolve()
+        restarts_dir = get_restarts_dir(project_folder).resolve()
+    except OSError as exc:
+        return None, f'could not resolve prompt path: {exc}'
+
+    if resolved == restarts_dir or restarts_dir in resolved.parents:
+        return resolved, ''
+
+    return None, f'prompt path is outside recall-restarts: {resolved}'
+
+
+def _delete_restart_prompt(entry: dict, project_folder: str) -> tuple[Path | None, str]:
+    """Delete a restart prompt file when it is safe to do so."""
+    prompt_path, skip_reason = _prompt_path_for_deletion(entry, project_folder)
+    if prompt_path is None:
+        return None, skip_reason
+
+    try:
+        prompt_path.unlink()
+    except FileNotFoundError:
+        return None, 'prompt file already missing'
+    except OSError as exc:
+        raise RuntimeError(f'could not delete prompt file {prompt_path}: {exc}') from exc
+
+    return prompt_path, ''
+
+
+def _resolve_delete_target(target: str, project_folder: str) -> tuple[dict, str, str]:
+    """Resolve a delete target to ``(entry, project_folder, display_label)``."""
+    if target.isdigit():
+        target_pos = int(target)
+        ordered = ordered_display_entries(project_folder)
+
+        if not ordered:
+            print("No restart entries found.", file=sys.stderr)
+            print("Use '/recall save' to save a session first.", file=sys.stderr)
+            sys.exit(1)
+
+        for pos, entry, pf in ordered:
+            if pos == target_pos:
+                return entry, pf, str(pos)
+
+        print(f"Error: No entry at position {target_pos}.", file=sys.stderr)
+        print(f"Run '/recall restart' to see the current list ({len(ordered)} entries).", file=sys.stderr)
+        sys.exit(1)
+
+    matches = find_matching_entries(target, project_folder)
+    if not matches:
+        print(f"No entries matching '{target}'.", file=sys.stderr)
+        sys.exit(1)
+
+    if len(matches) > 1:
+        print(f"Delete target '{target}' matched {len(matches)} entries:\n")
+        _print_match_choices(matches, project_folder)
+        print(f"\nUse '/recall restart delete <number>' or a unique named session token.")
+        sys.exit(1)
+
+    entry, pf = matches[0]
+    return entry, pf, entry_session_name(entry)
+
+
 # ---------------------------------------------------------------------------
 # Subcommand: list
 # ---------------------------------------------------------------------------
@@ -518,6 +701,45 @@ def cmd_list(args):
     print(f"{DIM}Restart with: /recall restart <number>{RESET}")
     print(f"{DIM}Restart by name: /recall restart <name>{RESET}")
     print(f"{DIM}Open separate windows with: /recall restart --launch <number>{RESET}")
+    print(f"{DIM}Review compact list: /recall restart summary{RESET}")
+    print(f"{DIM}Delete old prompts: /recall restart delete <number|name>{RESET}")
+
+
+# ---------------------------------------------------------------------------
+# Subcommand: summary
+# ---------------------------------------------------------------------------
+
+def cmd_summary(args):
+    """Print a compact numbered summary for reviewing or deleting restarts."""
+    project_folder = get_project_folder()
+    ordered = ordered_display_entries(project_folder)
+
+    if not ordered:
+        print("No restart entries found.")
+        print(f"  Project: {project_folder}")
+        print(f"\nUse '/recall save' to save a session before closing it.")
+        return
+
+    print(f"{BOLD}Restart Summary{RESET} ({len(ordered)} total)\n")
+
+    for pos, entry, pf in ordered:
+        name = entry_session_name(entry)
+        summary = entry.get('summary', '')
+        role = entry.get('role', '')
+        date_str = entry.get('date', '')
+        wd = entry.get('working_directory', '')
+        home = str(Path.home())
+        wd_display = ('~' + wd[len(home):]) if wd.startswith(home) else wd
+        prompt_status = 'prompt: yes' if _resolve_prompt_path(entry, pf) else 'prompt: missing'
+        role_badge = f" [{role}]" if role else ""
+
+        print(f"  {pos}  {date_str}  {name}{role_badge}")
+        if summary and summary != name:
+            print(f"     {summary}")
+        print(f"     {DIM}{wd_display}  {prompt_status}{RESET}")
+
+    print(f"\n{DIM}Load: /recall restart <number|name>{RESET}")
+    print(f"{DIM}Delete: /recall restart delete <number|name>{RESET}")
 
 
 # ---------------------------------------------------------------------------
@@ -598,51 +820,8 @@ def cmd_launch(args):
 
 def cmd_match(args):
     """Search entries by text and load or launch if exactly one match."""
-    search_text = args.text.lower()
     project_folder = get_project_folder()
-    all_entries = collect_all_entries(project_folder)
-
-    exact_name_matches = []
-    matches = []
-    for entry, pf in all_entries:
-        session_name = entry_session_name(entry)
-        if search_text == session_name.lower():
-            exact_name_matches.append((entry, pf))
-            continue
-
-        if search_text in session_name.lower():
-            matches.append((entry, pf))
-            continue
-
-        if search_text in entry.get('prompt_file', '').lower():
-            matches.append((entry, pf))
-            continue
-
-        # Search in summary
-        if search_text in entry.get('summary', '').lower():
-            matches.append((entry, pf))
-            continue
-
-        # Search in prompt file contents
-        prompt_file = entry.get('prompt_file', '')
-        if prompt_file:
-            prompt_path = get_project_dir(pf) / prompt_file
-            if prompt_path.exists():
-                try:
-                    content = prompt_path.read_text()[:2000]
-                    if search_text in content.lower():
-                        matches.append((entry, pf))
-                        continue
-                except (IOError, OSError):
-                    pass
-
-        # Search in goal
-        if search_text in entry.get('goal', '').lower():
-            matches.append((entry, pf))
-            continue
-
-    if exact_name_matches:
-        matches = exact_name_matches
+    matches = find_matching_entries(args.text, project_folder)
 
     if not matches:
         print(f"No entries matching '{args.text}'.", file=sys.stderr)
@@ -661,20 +840,45 @@ def cmd_match(args):
 
     # Multiple matches — display and let user pick
     print(f"Found {len(matches)} matches for '{args.text}':\n")
-    for entry, pf in matches:
-        eid = entry_session_name(entry)
-        summary = entry.get('summary', '')
-        role = entry.get('role', '')
-        wd = entry.get('working_directory', '')
-        home = str(Path.home())
-        if wd.startswith(home):
-            wd = '~' + wd[len(home):]
-        print(f"  {eid}  [{role}]  {summary}")
-        print(f"       {DIM}{wd}{RESET}")
+    _print_match_choices(matches, project_folder)
 
-    print(f"\nUse 'recall-restart.py match <name>' to load an exact named session.")
-    print(f"Use 'recall-restart.py show <number>' to load a specific entry.")
-    print(f"Use 'recall-restart.py launch <number>' to open it in a separate window.")
+    print(f"\nUse '/recall restart <name>' to load an exact named session.")
+    print(f"Use '/recall restart <number>' to load a specific entry.")
+    print(f"Use '/recall restart --launch <number>' to open it in a separate window.")
+    print(f"Use '/recall restart delete <number>' to delete an old prompt.")
+
+
+# ---------------------------------------------------------------------------
+# Subcommand: delete
+# ---------------------------------------------------------------------------
+
+def cmd_delete(args):
+    """Delete a restart entry and its stored prompt file when safe."""
+    target = args.target.strip()
+    if not target:
+        print("Error: delete requires a number, name, or unique text target.", file=sys.stderr)
+        sys.exit(1)
+
+    project_folder = get_project_folder()
+    entry, entry_project, label = _resolve_delete_target(target, project_folder)
+    summary = entry.get('summary', '')
+
+    try:
+        deleted_prompt, prompt_note = _delete_restart_prompt(entry, entry_project)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not _remove_restart_entry(entry, entry_project):
+        print("Error: restart entry disappeared before it could be deleted.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Deleted restart {label}: {summary}")
+    print(f"  Project: {entry_project}")
+    if deleted_prompt is not None:
+        print(f"  Prompt file deleted: {deleted_prompt}")
+    elif prompt_note:
+        print(f"  Prompt file skipped: {prompt_note}")
 
 
 # ---------------------------------------------------------------------------
@@ -766,7 +970,7 @@ def cmd_resume(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Recall restart engine — save, list, launch, and match restart entries.',
+        description='Recall restart engine — save, list, launch, match, and delete restart entries.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest='command', help='Subcommand')
@@ -792,6 +996,10 @@ def main():
     list_parser = subparsers.add_parser('list', help='List all restart entries')
     list_parser.set_defaults(func=cmd_list)
 
+    # summary
+    summary_parser = subparsers.add_parser('summary', help='Print a compact numbered restart summary')
+    summary_parser.set_defaults(func=cmd_summary)
+
     # show
     show_parser = subparsers.add_parser('show', help='Print a restart entry without launching a new window')
     show_parser.add_argument('number', type=int, help='Display position to load')
@@ -807,6 +1015,11 @@ def main():
     match_parser.add_argument('--launch', action='store_true', help='Open a matching entry in a separate window')
     match_parser.add_argument('text', help='Text to search for')
     match_parser.set_defaults(func=cmd_match)
+
+    # delete
+    delete_parser = subparsers.add_parser('delete', aliases=['rm', 'remove'], help='Delete a restart entry and stored prompt')
+    delete_parser.add_argument('target', help='Display number, exact name, or unique text to delete')
+    delete_parser.set_defaults(func=cmd_delete)
 
     # resume
     resume_parser = subparsers.add_parser('resume', help='List or launch sessions by native claude --resume token')

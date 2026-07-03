@@ -42,6 +42,15 @@ case "$SUBCOMMAND" in
     RESTART_ARG=${1:-}
     case "$RESTART_ARG" in
       ""|list) exec python3 "$ROOT/bin/recall-restart.py" list ;;
+      summary|summarize) exec python3 "$ROOT/bin/recall-restart.py" summary ;;
+      delete|rm|remove)
+        shift || true
+        if [ "$#" -lt 1 ]; then
+          echo "Usage: /recall restart delete <number|name|text>" >&2
+          exit 1
+        fi
+        exec python3 "$ROOT/bin/recall-restart.py" delete "$*"
+        ;;
       *[!0-9]*)
         if [ "$LAUNCH" = "1" ]; then
           exec python3 "$ROOT/bin/recall-restart.py" match --launch "$*"

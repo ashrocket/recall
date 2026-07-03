@@ -42,8 +42,10 @@ python3 ~/.recall/hooks/scripts/codex_session_end.py --latest "$PWD" 2>/dev/null
 | `/recall learn` | Review and approve pending learnings |
 | `/recall save` | Distill current session into a restart prompt |
 | `/recall restart` | List saved restart prompts |
+| `/recall restart summary` | Show a compact numbered restart list |
 | `/recall restart <n\|text>` | Load a saved restart in the current session |
 | `/recall restart --launch <n\|text>` | Open a saved restart in a separate window |
+| `/recall restart delete <n\|text>` | Delete a saved restart and stored prompt file |
 | `/recall stats` | Skill and learning usage statistics |
 | `/recall knowledge` | Show loaded CLAUDE.md knowledge |
 | `/recall cleanup` | Analyze and prune the session index |
