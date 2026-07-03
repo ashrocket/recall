@@ -24,7 +24,7 @@ For now, save runs both approaches so we can compare quality:
    python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-save-eval.py log "$PWD" --local-prompt "$LOCAL_PROMPT" --llm-prompt "$LLM_PROMPT" --winner local|llm|tie --reason "<one sentence>"
    ```
 
-Only the local extractor registers a restart entry. The LLM candidate and JSONL comparison log are experimental artifacts.
+The local extractor registers the initial restart entry. If the comparison winner is `llm`, the eval logger promotes the matching restart registry entry to the LLM prompt so `/recall restart` loads the better handoff.
 
 ## Quality Guidelines
 

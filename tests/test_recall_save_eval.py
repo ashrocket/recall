@@ -54,3 +54,51 @@ def test_append_log_writes_jsonl(tmp_path):
     assert path == tmp_path / "recall-save-evals.jsonl"
     lines = path.read_text().splitlines()
     assert json.loads(lines[0])["winner"] == "tie"
+
+
+def test_registry_prompt_value_stores_project_relative_paths(tmp_path):
+    mod = _import_recall_save_eval()
+    prompt = tmp_path / "recall-restarts" / "fix-auth.llm.prompt"
+
+    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path):
+        value = mod.registry_prompt_value("proj", str(prompt))
+
+    assert value == "recall-restarts/fix-auth.llm.prompt"
+
+
+def test_promote_llm_winner_updates_matching_agent_prompt(tmp_path):
+    mod = _import_recall_save_eval()
+    agents = [
+        {"id": 1, "prompt_file": "recall-restarts/fix-auth.prompt"},
+        {"id": 2, "prompt_file": "recall-restarts/other.prompt"},
+    ]
+    local = tmp_path / "recall-restarts" / "fix-auth.prompt"
+    llm = tmp_path / "recall-restarts" / "fix-auth.llm.prompt"
+    saved = []
+
+    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), \
+         mock.patch.object(mod, "load_agents", return_value=agents), \
+         mock.patch.object(mod, "save_agents", side_effect=lambda updated, project: saved.extend(updated)):
+        changed = mod.promote_llm_winner("proj", str(local), str(llm))
+
+    assert changed == 1
+    assert agents[0]["prompt_file"] == "recall-restarts/fix-auth.llm.prompt"
+    assert agents[1]["prompt_file"] == "recall-restarts/other.prompt"
+    assert saved[0]["prompt_file"] == "recall-restarts/fix-auth.llm.prompt"
+
+
+def test_promote_llm_winner_leaves_registry_when_no_match(tmp_path):
+    mod = _import_recall_save_eval()
+    agents = [{"id": 1, "prompt_file": "recall-restarts/other.prompt"}]
+
+    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), \
+         mock.patch.object(mod, "load_agents", return_value=agents), \
+         mock.patch.object(mod, "save_agents") as save_agents:
+        changed = mod.promote_llm_winner(
+            "proj",
+            str(tmp_path / "recall-restarts" / "fix-auth.prompt"),
+            str(tmp_path / "recall-restarts" / "fix-auth.llm.prompt"),
+        )
+
+    assert changed == 0
+    save_agents.assert_not_called()

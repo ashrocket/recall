@@ -15,7 +15,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.shared import get_project_folder, get_project_dir  # noqa: E402
+from lib.shared import (  # noqa: E402
+    get_project_folder,
+    get_project_dir,
+    load_agents,
+    save_agents,
+)
 
 
 WINNERS = {"local", "llm", "tie"}
@@ -54,6 +59,52 @@ def unique_llm_prompt_path(local_prompt: str) -> Path:
         if not candidate.exists():
             return candidate
     return parent / f"{stem}.llm-{os.getpid()}.prompt"
+
+
+def registry_prompt_value(project_folder: str, prompt: str) -> str:
+    """Return the prompt path form stored in agents.json."""
+    prompt_path = Path(prompt)
+    if not prompt_path.is_absolute():
+        return str(prompt_path)
+
+    try:
+        return str(prompt_path.relative_to(get_project_dir(project_folder)))
+    except ValueError:
+        return str(prompt_path)
+
+
+def prompt_matches_registry(project_folder: str, entry_prompt: str, prompt: str) -> bool:
+    """Return whether an agents.json prompt entry points at prompt."""
+    if not entry_prompt:
+        return False
+    if entry_prompt == prompt:
+        return True
+    if entry_prompt == registry_prompt_value(project_folder, prompt):
+        return True
+
+    project_dir = get_project_dir(project_folder)
+    entry_path = Path(entry_prompt)
+    prompt_path = Path(prompt)
+    if not entry_path.is_absolute():
+        entry_path = project_dir / entry_path
+    if not prompt_path.is_absolute():
+        prompt_path = project_dir / prompt_path
+    return entry_path == prompt_path
+
+
+def promote_llm_winner(project_folder: str, local_prompt: str, llm_prompt: str) -> int:
+    """Point matching restart registry entries at the LLM prompt."""
+    agents = load_agents(project_folder)
+    replacement = registry_prompt_value(project_folder, llm_prompt)
+    changed = 0
+    for entry in agents:
+        if prompt_matches_registry(project_folder, entry.get("prompt_file", ""), local_prompt):
+            if entry.get("prompt_file") != replacement:
+                entry["prompt_file"] = replacement
+                changed += 1
+    if changed:
+        save_agents(agents, project_folder)
+    return changed
 
 
 def build_log_entry(
@@ -106,8 +157,14 @@ def cmd_log(args) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     path = append_log(project_folder, entry)
+    promoted = 0
+    if args.winner == "llm":
+        promoted = promote_llm_winner(project_folder, args.local_prompt, args.llm_prompt)
+
     print(f"Logged save comparison: {path}")
     print(f"Winner: {args.winner}")
+    if promoted:
+        print(f"Promoted LLM prompt in restart registry: {promoted} entry(s)")
     return 0
 
 
