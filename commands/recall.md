@@ -14,8 +14,9 @@ Common forms:
 - `/recall last` — previous session
 - `/recall failures` — failure patterns and learnings
 - `/recall save [name]` — checkpoint current work; names the restart (falls back to the Claude session title, then a summary slug)
-- `/recall restart [list|n|name|text]` — list saved named checkpoints or load one in the current session
+- `/recall restart [list|summary|n|name|text]` — list or summarize saved named checkpoints, or load one in the current session
 - `/recall restart --launch <n|name|text>` — open a checkpoint in a separate window as a fresh, named `claude` session
+- `/recall restart delete <n|name|text>` — delete a saved restart and its stored prompt file
 - `/recall resume [n]` — list or launch saved native `claude --resume` tokens (captured by cmux at save time)
 - `/recall learn` — review pending learnings
 - `/recall stats` — skill and learning usage stats

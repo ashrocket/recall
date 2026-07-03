@@ -13,7 +13,7 @@
 
 `Accumulate → Extract → Restart`
 
-[![Version](https://img.shields.io/badge/version-3.3.0-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
+[![Version](https://img.shields.io/badge/version-3.3.1-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 [![License](https://img.shields.io/badge/license-MIT-56b6c2?style=flat-square&labelColor=12151e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Gemini%20CLI-98c379?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 
@@ -32,7 +32,7 @@ When your AI coding agent hits its context limit, work stops. recall captures wh
 | `/recall last` | Show details from the most recent previous session |
 | `/recall <term>` | Ranked local search; supports quoted literal fragments like `/recall '.p8'` and slash-delimited regex like `/recall /.*\.p8/` |
 | `/recall save` | Locally extract the current session into a restart prompt |
-| `/recall restart` | List saved named restarts; `restart <n>`, `<name>`, or `<text>` loads one in the current session; `restart --launch <n|text>` opens a separate window |
+| `/recall restart` | List saved named restarts; `restart summary` reviews a compact list; `restart <n>`, `<name>`, or `<text>` loads one; `restart --launch <n|text>` opens a separate window; `restart delete <n|text>` prunes old prompts |
 | `/recall failures` | Bash failure patterns and SOPs |
 | `/recall learn` | Review and approve pending learnings |
 | `/recall knowledge` | Show current CLAUDE.md (global and project) |
@@ -110,10 +110,12 @@ Search is forgiving for day-to-day memory lookup: `/recall sops ?` ignores the s
 /recall failures           # failure patterns and learnings
 /recall save               # locally extract + save session as restart prompt
 /recall restart            # list saved named restart prompts
+/recall restart summary    # compact numbered review list
 /recall restart 3          # load restart #3
 /recall restart payroll    # load an exact named restart when available
 /recall restart latency    # search restarts by text match
 /recall restart --launch 3 # open restart #3 in a separate window
+/recall restart delete 3   # delete restart #3 and its stored prompt file
 /recall learn              # review and approve pending learnings
 /recall learn --batch      # accept all pending learnings
 /recall cleanup --all      # clean noise, sensitive data, old files

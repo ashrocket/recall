@@ -11,6 +11,17 @@ By default, load restart prompts into the current session. Do not open separate 
 python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-restart.py list
 ```
 
+**If** argument is **`summary`** or **`summarize`**: Show a compact numbered review list for selecting old restarts.
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-restart.py summary
+```
+
+**If** argument starts with **`delete`**, **`rm`**, or **`remove`**: Delete one saved restart by list number, exact name, or unique text match. Prefer a number from the current list or summary when pruning old prompts.
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-restart.py delete <number>
+python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-restart.py delete "<name-or-unique-text>"
+```
+
 **If** argument starts with **`--launch`** or **`-l`**: Open a separate Terminal/Claude window for that restart.
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-restart.py launch <number>
