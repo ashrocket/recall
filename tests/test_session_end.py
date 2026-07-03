@@ -735,3 +735,43 @@ class TestSessionEndSaveIndex:
             result = mod.load_index("proj")
 
         assert result["sessions"]["s"]["summary"] == "roundtrip"
+
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+class TestSessionEndMain:
+    def test_emits_valid_json_on_success(self, tmp_path, capsys):
+        mod = _import_session_end()
+        session_file = tmp_path / "abc123.jsonl"
+        session_file.write_text("{}\n")
+        session_data = {
+            "session_id": "abc123",
+            "date": "2026-04-24T10:00:00",
+            "summary": "Fix auth",
+            "topics": [],
+            "user_messages": [],
+            "commands": [],
+            "failures": [],
+            "failure_patterns": {},
+            "skills_used": [],
+        }
+
+        with mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch.object(mod, "find_current_session", return_value=session_file), \
+             mock.patch.object(mod, "parse_session_full", return_value=session_data), \
+             mock.patch.object(mod, "save_session_details"), \
+             mock.patch.object(mod, "load_index", return_value={"version": 2, "sessions": {}, "failure_patterns": {}, "learnings": [], "pending_learnings": [], "usage": {}}), \
+             mock.patch.object(mod, "save_index"), \
+             mock.patch.object(mod, "cleanup_old_detail_files"), \
+             mock.patch.object(mod, "cleanup_old_jsonl_files"), \
+             mock.patch("lib.sync_hooks.maybe_sync_push"), \
+             mock.patch("subprocess.run", return_value=mock.Mock(returncode=0, stdout="{}")), \
+             mock.patch("random.random", return_value=1.0), \
+             mock.patch.object(sys, "argv", ["session-end.py", str(tmp_path)]):
+            mod.main()
+
+        out = capsys.readouterr()
+        payload = json.loads(out.out.strip())
+        assert payload["hookSpecificOutput"]["hookEventName"] == "SessionEnd"

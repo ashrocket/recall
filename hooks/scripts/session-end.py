@@ -389,7 +389,7 @@ def cleanup_old_jsonl_files(project_folder: str):
             pass
 
     if freed > 0:
-        print(f"  Cleaned {freed / 1024 / 1024:.1f} MB of old session files")
+        print(f"  Cleaned {freed / 1024 / 1024:.1f} MB of old session files", file=sys.stderr)
 
 
 def save_index(project_folder: str, index: dict):
@@ -512,7 +512,7 @@ def main():
                 extract_result = json.loads(result.stdout)
                 proposals = extract_result.get('proposals_added', 0)
                 if proposals > 0:
-                    print(f"  Proposed {proposals} learnings (run /recall learn to review)")
+                    print(f"  Proposed {proposals} learnings (run /recall learn to review)", file=sys.stderr)
     except Exception as e:
         # Don't fail indexing if extraction fails
         pass
@@ -531,7 +531,13 @@ def main():
         pass  # Never fail indexing due to sync
 
     skills_msg = f", {len(session_data['skills_used'])} skills" if session_data['skills_used'] else ""
-    print(f"Indexed session {session_id[:8]}... ({len(session_data['user_messages'])} messages, {len(session_data['commands'])} commands, {len(session_data['failures'])} failures{skills_msg})")
+    print(
+        f"Indexed session {session_id[:8]}... ({len(session_data['user_messages'])} messages, "
+        f"{len(session_data['commands'])} commands, {len(session_data['failures'])} failures{skills_msg})",
+        file=sys.stderr,
+    )
+
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionEnd"}}))
 
 if __name__ == '__main__':
     main()
