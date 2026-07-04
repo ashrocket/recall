@@ -742,7 +742,11 @@ class TestSessionEndSaveIndex:
 # ---------------------------------------------------------------------------
 
 class TestSessionEndMain:
-    def test_emits_valid_json_on_success(self, tmp_path, capsys):
+    def test_emits_no_stdout_on_success(self, tmp_path, capsys):
+        # SessionEnd hooks have no hookSpecificOutput variant in Claude Code's
+        # hook schema (unlike PreToolUse/PostToolUse/Stop/etc) — printing one
+        # fails hook JSON validation. Progress messages must go to stderr and
+        # stdout must stay empty.
         mod = _import_session_end()
         session_file = tmp_path / "abc123.jsonl"
         session_file.write_text("{}\n")
@@ -773,5 +777,4 @@ class TestSessionEndMain:
             mod.main()
 
         out = capsys.readouterr()
-        payload = json.loads(out.out.strip())
-        assert payload["hookSpecificOutput"]["hookEventName"] == "SessionEnd"
+        assert out.out == ""

@@ -537,7 +537,5 @@ def main():
         file=sys.stderr,
     )
 
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionEnd"}}))
-
 if __name__ == '__main__':
     main()
