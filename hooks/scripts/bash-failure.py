@@ -27,7 +27,7 @@ STATE_FILE = Path.home() / ".claude" / "shell-failures" / ".last-failure"
 RESOLUTION_WINDOW = timedelta(minutes=5)
 
 
-def read_state() -> dict | None:
+def read_state():
     """Read last failure state if recent enough."""
     if not STATE_FILE.exists():
         return None
@@ -48,22 +48,28 @@ def read_state() -> dict | None:
 
 def write_state(error_type: str, failed_cmd: str, error_msg: str):
     """Save failure state for resolution detection."""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    state = {
-        "timestamp": datetime.now().isoformat(),
-        "error_type": error_type,
-        "failed_command": failed_cmd[:500],
-        "error_message": error_msg[:500]
-    }
+        state = {
+            "timestamp": datetime.now().isoformat(),
+            "error_type": error_type,
+            "failed_command": failed_cmd[:500],
+            "error_message": error_msg[:500]
+        }
 
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f)
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f)
+    except OSError:
+        pass
 
 
 def clear_state():
     """Clear failure state after resolution."""
-    STATE_FILE.unlink(missing_ok=True)
+    try:
+        STATE_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def truncate(s: str, length: int = 100) -> str:

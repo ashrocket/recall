@@ -270,7 +270,7 @@ Claude Code installs register the hooks from `hooks/hooks.json`:
     "SessionEnd": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-end.py",
+        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-end",
         "timeout": 30
       }]
     }],
@@ -278,7 +278,7 @@ Claude Code installs register the hooks from `hooks/hooks.json`:
       "matcher": "Bash",
       "hooks": [{
         "type": "command",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bash-failure.py",
+        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/bash-failure",
         "timeout": 10
       }]
     }]
@@ -347,7 +347,9 @@ recall/
 │   └── scripts/
 │       ├── session-start        # SessionStart: Rust fast path wrapper
 │       ├── session-start.py     # SessionStart: Python fallback
+│       ├── session-end          # SessionEnd wrapper
 │       ├── session-end.py       # SessionEnd: indexes session
+│       ├── bash-failure         # PostToolUse:Bash wrapper
 │       └── bash-failure.py      # PostToolUse:Bash: failure patterns
 └── bin/
     ├── recall                   # shell wrapper (Rust fast path → Python fallback)

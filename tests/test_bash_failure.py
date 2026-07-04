@@ -251,6 +251,13 @@ class TestWriteAndClearState:
         data = json.loads(state_file.read_text())
         assert len(data["failed_command"]) <= 500
 
+    def test_write_ignores_state_file_permission_error(self, tmp_path):
+        mod = _import_bash_failure()
+        state_file = tmp_path / ".last-failure"
+        with mock.patch.object(mod, "STATE_FILE", state_file), \
+             mock.patch("builtins.open", side_effect=PermissionError("nope")):
+            mod.write_state("x", "cmd", "err")  # must not raise
+
     def test_clear_removes_file(self, tmp_path):
         mod = _import_bash_failure()
         state_file = tmp_path / ".last-failure"
@@ -263,6 +270,13 @@ class TestWriteAndClearState:
         mod = _import_bash_failure()
         missing = tmp_path / ".last-failure"
         with mock.patch.object(mod, "STATE_FILE", missing):
+            mod.clear_state()  # must not raise
+
+    def test_clear_ignores_state_file_permission_error(self):
+        mod = _import_bash_failure()
+        state_file = mock.Mock()
+        state_file.unlink.side_effect = PermissionError("nope")
+        with mock.patch.object(mod, "STATE_FILE", state_file):
             mod.clear_state()  # must not raise
 
 

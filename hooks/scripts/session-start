@@ -13,4 +13,5 @@ if [ -x "$FAST_BIN" ] && [ "${RECALL_NO_FAST:-}" != "1" ] && [ -z "${RECALL_SYNC
     fi
   fi
 fi
-exec python3 "$ROOT/hooks/scripts/session-start.py" "$@"
+PYTHON_BIN="${RECALL_PYTHON:-python3}"
+exec "$PYTHON_BIN" "$ROOT/hooks/scripts/session-start.py" "$@"
