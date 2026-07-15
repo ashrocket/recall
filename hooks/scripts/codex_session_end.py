@@ -82,6 +82,30 @@ def prune_index(index: dict) -> dict:
     return index
 
 
+def save_session_details(project_folder: str, session_id: str, details: dict) -> bool:
+    """Persist the full session details file without failing the hook."""
+    try:
+        details_dir = get_session_details_dir(project_folder)
+        details_dir.mkdir(parents=True, exist_ok=True)
+        details_file = details_dir / f"{session_id}.json"
+        with open(details_file, "w") as f:
+            json.dump(details, f, indent=2, default=str)
+        return True
+    except OSError as exc:
+        print(f"Recall SessionEnd skipped: {exc}", file=sys.stderr)
+        return False
+
+
+def save_index_safely(index: dict, project_folder: str) -> bool:
+    """Persist the summary index without failing the hook."""
+    try:
+        save_index(index, project_folder, prune_fn=prune_index)
+        return True
+    except OSError as exc:
+        print(f"Recall SessionEnd skipped: {exc}", file=sys.stderr)
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Codex session parsing — real JSONL format
 # ---------------------------------------------------------------------------
@@ -273,12 +297,9 @@ def main():
     cwd = args.project_dir or session_data.get("cwd") or os.environ.get("CODEX_PROJECT") or os.getcwd()
     project_folder, _ = get_project_folders(cwd)
 
-    # Save full details
-    details_dir = get_session_details_dir(project_folder)
-    details_dir.mkdir(parents=True, exist_ok=True)
-    details_file = details_dir / f"{session_data['session_id']}.json"
-    with open(details_file, "w") as f:
-        json.dump(session_data, f, indent=2, default=str)
+    # Save full details, but never fail the hook when the detail path is
+    # unavailable in the current sandbox or runtime environment.
+    save_session_details(project_folder, session_data["session_id"], session_data)
 
     # Update index
     index = load_index(project_folder, create_if_missing=True)
@@ -291,7 +312,7 @@ def main():
         ])
         index["failure_patterns"][pattern] = index["failure_patterns"][pattern][-15:]
 
-    save_index(index, project_folder, prune_fn=prune_index)
+    save_index_safely(index, project_folder)
     print(
         f"Indexed Codex session {session_data['session_id']} "
         f"({len(session_data['user_messages'])} messages, "

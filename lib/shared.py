@@ -61,6 +61,63 @@ def _resolve_worktree_by_path(cwd: str) -> Optional[str]:
     return None
 
 
+def resolve_git_root(cwd: str) -> Optional[str]:
+    """Return the containing git repo root for *cwd*, or ``None``.
+
+    Recall stores project-level memory. When an agent shell drifts into a deep
+    repo subdirectory, using the subdirectory as a separate project creates
+    misplaced restart prompts and hides the real project history.
+    """
+    try:
+        path = Path(cwd).expanduser()
+        search_dir = path.parent if path.is_file() else path
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True, text=True, cwd=str(search_dir), timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    root = result.stdout.strip()
+    return root or None
+
+
+def _worktree_branch(cwd: str) -> Optional[str]:
+    """Best-effort branch name extraction from a worktree ``.git`` file."""
+    git_file = Path(cwd) / '.git'
+    try:
+        content = git_file.read_text().strip()
+        # Format: gitdir: /main/repo/.git/worktrees/<branch>
+        if content.startswith('gitdir:'):
+            parts = content.split('/')
+            if 'worktrees' in parts:
+                wt_idx = parts.index('worktrees')
+                if wt_idx + 1 < len(parts):
+                    return parts[wt_idx + 1]
+    except (IOError, OSError):
+        pass
+    return None
+
+
+def resolve_project_root(cwd: str = None) -> str:
+    """Return the canonical filesystem root Recall should use for *cwd*."""
+    cwd = _resolve_cwd(cwd)
+
+    git_root = resolve_git_root(cwd)
+    if git_root is not None:
+        cwd = git_root
+
+    main_repo = resolve_worktree_root(cwd)
+    if main_repo is not None:
+        update_worktree_registry(main_repo, cwd, _worktree_branch(cwd))
+        return main_repo
+
+    return cwd
+
+
 def resolve_worktree_root(cwd: str) -> Optional[str]:
     """Detect whether *cwd* is a git worktree and return the main repo path.
 
@@ -213,31 +270,7 @@ def get_project_folder(cwd: str = None) -> str:
     When *cwd* is inside a git worktree, resolves to the main repo path so
     that all worktrees share the same recall index.
     """
-    cwd = _resolve_cwd(cwd)
-
-    # Worktree resolution: if cwd is a worktree, use the main repo path
-    main_repo = resolve_worktree_root(cwd)
-    if main_repo is not None:
-        # Try to extract branch name from the .git file
-        branch = None
-        git_file = Path(cwd) / '.git'
-        try:
-            content = git_file.read_text().strip()
-            # Format: gitdir: /main/repo/.git/worktrees/<branch>
-            if content.startswith('gitdir:'):
-                parts = content.split('/')
-                # Last component after "worktrees/" is the branch name
-                if 'worktrees' in parts:
-                    wt_idx = parts.index('worktrees')
-                    if wt_idx + 1 < len(parts):
-                        branch = parts[wt_idx + 1]
-        except (IOError, OSError):
-            pass
-
-        update_worktree_registry(main_repo, cwd, branch)
-        cwd = main_repo
-
-    return _normalize_path(cwd)
+    return _normalize_path(resolve_project_root(cwd))
 
 
 def get_project_folders(cwd: str = None) -> Tuple[str, str]:

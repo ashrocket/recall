@@ -87,7 +87,11 @@ def _find_sessions_in_folder(project_folder: str) -> list:
     return sessions
 
 
-def find_current_session(project_folder: str, also_check_folder: str = None) -> Path:
+def find_current_session(
+    project_folder: str,
+    also_check_folder: str = None,
+    session_file_override: str = None,
+) -> Path:
     """Find the most recent session file.
 
     Searches *project_folder* first.  When *also_check_folder* is provided
@@ -95,6 +99,11 @@ def find_current_session(project_folder: str, also_check_folder: str = None) -> 
     worktrees where Claude Code writes JSONLs to the worktree-specific
     folder while recall resolves to the main repo's folder.
     """
+    if session_file_override:
+        path = Path(session_file_override).expanduser()
+        if path.exists() and path.is_file() and not path.name.startswith('agent-'):
+            return path
+
     sessions = _find_sessions_in_folder(project_folder)
     if sessions:
         return sessions[0]
@@ -396,20 +405,57 @@ def save_index(project_folder: str, index: dict):
     """Save index to disk, pruning if necessary."""
     _shared_save_index(index, project_folder, prune_fn=prune_index)
 
+
+def warn_and_skip_hook(message: str):
+    """Report a non-fatal SessionEnd failure without breaking the hook runner."""
+    print(f"Recall SessionEnd skipped: {message}", file=sys.stderr)
+
+
+def should_emit_session_end_json() -> bool:
+    """Return whether this runtime expects a JSON SessionEnd stdout envelope."""
+    mode = os.environ.get('RECALL_SESSION_END_STDOUT', 'auto').strip().lower()
+    if mode in {'json', 'json-object', 'codex'}:
+        return True
+    if mode in {'empty', 'none', 'silent'}:
+        return False
+    return any(key.startswith('CODEX_') for key in os.environ)
+
+
+def emit_session_end_output():
+    """Emit the minimal Codex-compatible SessionEnd hook object when required."""
+    if should_emit_session_end_json():
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionEnd"}}))
+
+
 def main():
+    args = sys.argv[1:]
+    session_file_override = os.environ.get('RECALL_SESSION_FILE', '')
+    if '--session-file' in args:
+        idx = args.index('--session-file')
+        if idx + 1 >= len(args):
+            print("--session-file requires a path", file=sys.stderr)
+            sys.exit(2)
+        session_file_override = args[idx + 1]
+        del args[idx:idx + 2]
+
     # Get project path from environment or argument
     cwd = os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
-    if len(sys.argv) > 1:
-        cwd = sys.argv[1]
+    if args:
+        cwd = args[0]
 
     # resolved = main repo folder (for index storage)
     # raw = literal path folder (where Claude Code writes JSONLs)
     project_folder, raw_folder = get_project_folders(cwd)
-    session_file = find_current_session(project_folder, also_check_folder=raw_folder)
+    session_file = find_current_session(
+        project_folder,
+        also_check_folder=raw_folder,
+        session_file_override=session_file_override,
+    )
 
     if not session_file:
         print(f"No session found for project: {cwd}", file=sys.stderr)
-        sys.exit(0)
+        emit_session_end_output()
+        return
 
     # Parse session (full data)
     session_data = parse_session_full(session_file)
@@ -428,63 +474,68 @@ def main():
         'failure_patterns': session_data['failure_patterns'],
         'skills_used': session_data['skills_used'][:30]
     }
-    save_session_details(project_folder, session_id, full_details)
+    try:
+        save_session_details(project_folder, session_id, full_details)
 
-    # 2. Store only lightweight summary in main index
-    index = load_index(project_folder)
-    index['sessions'][session_id] = create_session_summary(session_data)
+        # 2. Store only lightweight summary in main index
+        index = load_index(project_folder)
+        index['sessions'][session_id] = create_session_summary(session_data)
 
-    # Ensure usage section exists (for older indices)
-    if 'usage' not in index:
-        index['usage'] = {'skills': {}, 'learnings_shown': {}}
+        # Ensure usage section exists (for older indices)
+        if 'usage' not in index:
+            index['usage'] = {'skills': {}, 'learnings_shown': {}}
 
-    # Update skill usage stats (kept in main index for quick access)
-    for skill_use in session_data['skills_used']:
-        skill_name = skill_use['skill']
-        if skill_name not in index['usage']['skills']:
-            index['usage']['skills'][skill_name] = {
-                'count': 0,
-                'sessions': [],
-                'first_used': session_data['date'],
-                'last_used': session_data['date']
-            }
-        index['usage']['skills'][skill_name]['count'] += 1
-        index['usage']['skills'][skill_name]['last_used'] = session_data['date']
-        if session_id not in index['usage']['skills'][skill_name]['sessions']:
-            index['usage']['skills'][skill_name]['sessions'].append(session_id)
-            # Keep only last 10 sessions per skill
-            index['usage']['skills'][skill_name]['sessions'] = index['usage']['skills'][skill_name]['sessions'][-10:]
+        # Update skill usage stats (kept in main index for quick access)
+        for skill_use in session_data['skills_used']:
+            skill_name = skill_use['skill']
+            if skill_name not in index['usage']['skills']:
+                index['usage']['skills'][skill_name] = {
+                    'count': 0,
+                    'sessions': [],
+                    'first_used': session_data['date'],
+                    'last_used': session_data['date']
+                }
+            index['usage']['skills'][skill_name]['count'] += 1
+            index['usage']['skills'][skill_name]['last_used'] = session_data['date']
+            if session_id not in index['usage']['skills'][skill_name]['sessions']:
+                index['usage']['skills'][skill_name]['sessions'].append(session_id)
+                # Keep only last 10 sessions per skill
+                index['usage']['skills'][skill_name]['sessions'] = index['usage']['skills'][skill_name]['sessions'][-10:]
 
-    # Merge failure patterns into global patterns with deduplication
-    for pattern, failures in session_data['failure_patterns'].items():
-        if pattern not in index['failure_patterns']:
-            index['failure_patterns'][pattern] = []
+        # Merge failure patterns into global patterns with deduplication
+        for pattern, failures in session_data['failure_patterns'].items():
+            if pattern not in index['failure_patterns']:
+                index['failure_patterns'][pattern] = []
 
-        existing = index['failure_patterns'][pattern]
-        existing_cmds = {f.get('command', '')[:50] for f in existing[-5:]}
+            existing = index['failure_patterns'][pattern]
+            existing_cmds = {f.get('command', '')[:50] for f in existing[-5:]}
 
-        for f in failures:
-            f['session_id'] = session_id
-            f['date'] = session_data['date']
-            cmd_prefix = f.get('command', '')[:50]
+            for f in failures:
+                f['session_id'] = session_id
+                f['date'] = session_data['date']
+                cmd_prefix = f.get('command', '')[:50]
 
-            # Deduplicate: if same command prefix in recent entries, increment count instead
-            if cmd_prefix in existing_cmds:
-                for entry in reversed(existing):
-                    if entry.get('command', '')[:50] == cmd_prefix:
-                        entry['count'] = entry.get('count', 1) + 1
-                        entry['date'] = session_data['date']  # Update to latest
-                        break
-            else:
-                f['count'] = 1
-                existing.append(f)
-                existing_cmds.add(cmd_prefix)
+                # Deduplicate: if same command prefix in recent entries, increment count instead
+                if cmd_prefix in existing_cmds:
+                    for entry in reversed(existing):
+                        if entry.get('command', '')[:50] == cmd_prefix:
+                            entry['count'] = entry.get('count', 1) + 1
+                            entry['date'] = session_data['date']  # Update to latest
+                            break
+                else:
+                    f['count'] = 1
+                    existing.append(f)
+                    existing_cmds.add(cmd_prefix)
 
-        # Keep only last 15 of each pattern in index
-        index['failure_patterns'][pattern] = existing[-15:]
+            # Keep only last 15 of each pattern in index
+            index['failure_patterns'][pattern] = existing[-15:]
 
-    # Save updated index
-    save_index(project_folder, index)
+        # Save updated index
+        save_index(project_folder, index)
+    except OSError as e:
+        warn_and_skip_hook(str(e))
+        emit_session_end_output()
+        return
 
     # === KNOWLEDGE EXTRACTION (v2) ===
     try:
@@ -536,6 +587,7 @@ def main():
         f"{len(session_data['commands'])} commands, {len(session_data['failures'])} failures{skills_msg})",
         file=sys.stderr,
     )
+    emit_session_end_output()
 
 if __name__ == '__main__':
     main()

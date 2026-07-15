@@ -300,6 +300,76 @@ class TestFindCurrentClaudeTranscript:
              mock.patch.object(mod, "get_project_folders", return_value=("myapp", "myapp")):
             assert mod.find_current_claude_transcript("/tmp/myapp") == new
 
+    def test_session_id_wins_over_newer_concurrent_transcript(self, tmp_path):
+        import os
+        mod = _import_recall_save()
+        proj = tmp_path / ".claude" / "projects" / "myapp"
+        proj.mkdir(parents=True)
+        current = proj / "current-session.jsonl"
+        concurrent = proj / "other-session.jsonl"
+        current.write_text("{}\n")
+        concurrent.write_text("{}\n")
+        os.utime(current, (1000, 1000))
+        os.utime(concurrent, (3000, 3000))
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+             mock.patch.object(mod, "get_project_folders", return_value=("myapp", "myapp")):
+            assert mod.find_current_claude_transcript(
+                "/tmp/myapp",
+                session_id="current-session",
+            ) == current
+
+    def test_session_id_can_match_transcript_contents(self, tmp_path):
+        import os
+        mod = _import_recall_save()
+        proj = tmp_path / ".claude" / "projects" / "myapp"
+        proj.mkdir(parents=True)
+        current = proj / "renamed.jsonl"
+        concurrent = proj / "other-session.jsonl"
+        current.write_text('{"type":"custom-title","sessionId":"current-session"}\n')
+        concurrent.write_text("{}\n")
+        os.utime(current, (1000, 1000))
+        os.utime(concurrent, (3000, 3000))
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+             mock.patch.object(mod, "get_project_folders", return_value=("myapp", "myapp")):
+            assert mod.find_current_claude_transcript(
+                "/tmp/myapp",
+                session_id="current-session",
+            ) == current
+
+    def test_detects_ambiguous_active_transcripts(self, tmp_path):
+        import os
+        mod = _import_recall_save()
+        proj = tmp_path / ".claude" / "projects" / "myapp"
+        proj.mkdir(parents=True)
+        first = proj / "first.jsonl"
+        second = proj / "second.jsonl"
+        first.write_text("{}\n")
+        second.write_text("{}\n")
+        os.utime(first, (3000, 3000))
+        os.utime(second, (2950, 2950))
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+             mock.patch.object(mod, "get_project_folders", return_value=("myapp", "myapp")):
+            assert mod.has_ambiguous_active_claude_transcripts("/tmp/myapp") is True
+
+    def test_old_transcripts_are_not_ambiguous(self, tmp_path):
+        import os
+        mod = _import_recall_save()
+        proj = tmp_path / ".claude" / "projects" / "myapp"
+        proj.mkdir(parents=True)
+        first = proj / "first.jsonl"
+        second = proj / "second.jsonl"
+        first.write_text("{}\n")
+        second.write_text("{}\n")
+        os.utime(first, (3000, 3000))
+        os.utime(second, (2000, 2000))
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+             mock.patch.object(mod, "get_project_folders", return_value=("myapp", "myapp")):
+            assert mod.has_ambiguous_active_claude_transcripts("/tmp/myapp") is False
+
     def test_excludes_agent_transcripts(self, tmp_path):
         import os
         mod = _import_recall_save()
@@ -320,6 +390,118 @@ class TestFindCurrentClaudeTranscript:
         with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
              mock.patch.object(mod, "get_project_folders", return_value=("missing", "missing")):
             assert mod.find_current_claude_transcript("/tmp/missing") is None
+
+
+def test_index_current_session_passes_exact_claude_session_file(tmp_path):
+    mod = _import_recall_save()
+    cwd = tmp_path / "repo"
+    cwd.mkdir()
+    proj = tmp_path / ".claude" / "projects" / "repo"
+    proj.mkdir(parents=True)
+    transcript = proj / "current-session.jsonl"
+    transcript.write_text("{}\n")
+    calls = []
+
+    def fake_run(args, cwd=None, timeout=10, env=None):
+        calls.append(args)
+        return 0, "Indexed session current-session"
+
+    with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+         mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "run_command", side_effect=fake_run):
+        output = mod.index_current_session(
+            str(cwd),
+            platform="claude",
+            claude_session_id="current-session",
+        )
+
+    assert output == "Indexed session current-session"
+    assert "--session-file" in calls[0]
+    assert str(transcript) in calls[0]
+
+
+def test_index_current_session_skips_ambiguous_claude_without_session_id(tmp_path):
+    import os
+    mod = _import_recall_save()
+    cwd = tmp_path / "repo"
+    cwd.mkdir()
+    proj = tmp_path / ".claude" / "projects" / "repo"
+    proj.mkdir(parents=True)
+    first = proj / "first.jsonl"
+    second = proj / "second.jsonl"
+    first.write_text("{}\n")
+    second.write_text("{}\n")
+    os.utime(first, (3000, 3000))
+    os.utime(second, (2950, 2950))
+
+    with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+         mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "run_command") as mock_run:
+        output = mod.index_current_session(str(cwd), platform="claude")
+
+    mock_run.assert_not_called()
+    assert "Multiple active Claude transcripts" in output
+
+
+def test_index_current_session_allows_ambiguous_claude_with_session_id(tmp_path):
+    import os
+    mod = _import_recall_save()
+    cwd = tmp_path / "repo"
+    cwd.mkdir()
+    proj = tmp_path / ".claude" / "projects" / "repo"
+    proj.mkdir(parents=True)
+    current = proj / "current.jsonl"
+    other = proj / "other.jsonl"
+    current.write_text("{}\n")
+    other.write_text("{}\n")
+    os.utime(current, (2950, 2950))
+    os.utime(other, (3000, 3000))
+
+    def fake_run(args, cwd=None, timeout=10, env=None):
+        return 0, "Indexed session current"
+
+    with mock.patch.object(mod.Path, "home", return_value=tmp_path), \
+         mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "run_command", side_effect=fake_run) as mock_run:
+        output = mod.index_current_session(
+            str(cwd),
+            platform="claude",
+            claude_session_id="current",
+        )
+
+    assert output == "Indexed session current"
+    called_args = mock_run.call_args[0][0]
+    assert str(current) in called_args
+
+
+def test_save_restart_canonicalizes_nested_git_cwd_to_repo_root(tmp_path):
+    mod = _import_recall_save()
+    import subprocess
+
+    repo = tmp_path / "repo"
+    nested = repo / "Resources" / "Sprites"
+    nested.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    prompt_path = tmp_path / "project" / "recall-restarts" / "checkpoint.prompt"
+    prompt_path.parent.mkdir(parents=True)
+    registered = []
+
+    def fake_register(working_dir, *args, **kwargs):
+        registered.append(working_dir)
+        return "Saved"
+
+    with mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "latest_session", return_value=("sid", {"summary": "checkpoint"}, {"summary": "checkpoint"})), \
+         mock.patch.object(mod, "git_snapshot", return_value={"branch": "main", "status": "", "status_available": True, "log": ""}), \
+         mock.patch.object(mod, "unique_prompt_path", return_value=prompt_path), \
+         mock.patch.object(mod, "current_claude_session_id", return_value=""), \
+         mock.patch.object(mod, "registration_platform", return_value="codex"), \
+         mock.patch.object(mod, "register_restart", side_effect=fake_register), \
+         mock.patch.object(mod, "cmux_register_recall", return_value=""):
+        mod.save_restart(str(nested), platform="none", skip_index=True)
+
+    assert registered == [str(repo)]
+    assert f"`cd {repo}`" in prompt_path.read_text()
 
 
 class TestResolveRestartName:

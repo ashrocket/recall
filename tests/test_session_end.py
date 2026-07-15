@@ -3,6 +3,7 @@
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from unittest import mock
@@ -545,6 +546,35 @@ class TestFindCurrentSession:
             result = mod.find_current_session("myapp")
         assert result == f2
 
+    def test_session_file_override_wins_over_newer_session(self, tmp_path):
+        mod = _import_session_end()
+        project_dir = tmp_path / ".claude" / "projects" / "myapp"
+        project_dir.mkdir(parents=True)
+        current = project_dir / "current.jsonl"
+        newer = project_dir / "newer.jsonl"
+        current.write_text("{}")
+        newer.write_text("{}")
+        import os
+        os.utime(current, (1000, 1000))
+        os.utime(newer, (2000, 2000))
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path):
+            result = mod.find_current_session("myapp", session_file_override=str(current))
+        assert result == current
+
+    def test_session_file_override_ignores_agent_files(self, tmp_path):
+        mod = _import_session_end()
+        project_dir = tmp_path / ".claude" / "projects" / "myapp"
+        project_dir.mkdir(parents=True)
+        agent = project_dir / "agent-current.jsonl"
+        real = project_dir / "real.jsonl"
+        agent.write_text("{}")
+        real.write_text("{}")
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path):
+            result = mod.find_current_session("myapp", session_file_override=str(agent))
+        assert result == real
+
     def test_returns_none_when_no_sessions(self, tmp_path):
         mod = _import_session_end()
         project_dir = tmp_path / ".claude" / "projects" / "empty"
@@ -742,7 +772,7 @@ class TestSessionEndSaveIndex:
 # ---------------------------------------------------------------------------
 
 class TestSessionEndMain:
-    def test_emits_no_stdout_on_success(self, tmp_path, capsys):
+    def test_can_emit_no_stdout_on_success_for_legacy_mode(self, tmp_path, capsys):
         # SessionEnd hooks have no hookSpecificOutput variant in Claude Code's
         # hook schema (unlike PreToolUse/PostToolUse/Stop/etc) — printing one
         # fails hook JSON validation. Progress messages must go to stderr and
@@ -773,8 +803,71 @@ class TestSessionEndMain:
              mock.patch("lib.sync_hooks.maybe_sync_push"), \
              mock.patch("subprocess.run", return_value=mock.Mock(returncode=0, stdout="{}")), \
              mock.patch("random.random", return_value=1.0), \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "empty"}), \
              mock.patch.object(sys, "argv", ["session-end.py", str(tmp_path)]):
             mod.main()
 
         out = capsys.readouterr()
         assert out.out == ""
+
+    def test_emits_codex_session_end_json_on_success(self, tmp_path, capsys):
+        mod = _import_session_end()
+        session_file = tmp_path / "abc123.jsonl"
+        session_file.write_text("{}\n")
+        session_data = {
+            "session_id": "abc123",
+            "date": "2026-04-24T10:00:00",
+            "summary": "Fix auth",
+            "topics": [],
+            "user_messages": [],
+            "commands": [],
+            "failures": [],
+            "failure_patterns": {},
+            "skills_used": [],
+        }
+
+        with mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch.object(mod, "find_current_session", return_value=session_file), \
+             mock.patch.object(mod, "parse_session_full", return_value=session_data), \
+             mock.patch.object(mod, "save_session_details"), \
+             mock.patch.object(mod, "load_index", return_value={"version": 2, "sessions": {}, "failure_patterns": {}, "learnings": [], "pending_learnings": [], "usage": {}}), \
+             mock.patch.object(mod, "save_index"), \
+             mock.patch.object(mod, "cleanup_old_detail_files"), \
+             mock.patch.object(mod, "cleanup_old_jsonl_files"), \
+             mock.patch("lib.sync_hooks.maybe_sync_push"), \
+             mock.patch("subprocess.run", return_value=mock.Mock(returncode=0, stdout="{}")), \
+             mock.patch("random.random", return_value=1.0), \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "json"}), \
+             mock.patch.object(sys, "argv", ["session-end.py", str(tmp_path)]):
+            mod.main()
+
+        out = capsys.readouterr()
+        assert json.loads(out.out) == {"hookSpecificOutput": {"hookEventName": "SessionEnd"}}
+
+    def test_storage_permission_error_does_not_fail_codex_hook(self, tmp_path, capsys):
+        mod = _import_session_end()
+        session_file = tmp_path / "abc123.jsonl"
+        session_file.write_text("{}\n")
+        session_data = {
+            "session_id": "abc123",
+            "date": "2026-04-24T10:00:00",
+            "summary": "Fix auth",
+            "topics": [],
+            "user_messages": [],
+            "commands": [],
+            "failures": [],
+            "failure_patterns": {},
+            "skills_used": [],
+        }
+
+        with mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch.object(mod, "find_current_session", return_value=session_file), \
+             mock.patch.object(mod, "parse_session_full", return_value=session_data), \
+             mock.patch.object(mod, "save_session_details", side_effect=PermissionError("sandbox denied")), \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "json"}), \
+             mock.patch.object(sys, "argv", ["session-end.py", str(tmp_path)]):
+            mod.main()
+
+        out = capsys.readouterr()
+        assert json.loads(out.out) == {"hookSpecificOutput": {"hookEventName": "SessionEnd"}}
+        assert "Recall SessionEnd skipped: sandbox denied" in out.err

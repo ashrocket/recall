@@ -12,7 +12,7 @@ For now, save runs both approaches so we can compare quality:
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-save.py "$PWD"
    ```
-2. Extract the `Saved restart prompt: ...` path from that output. Call it `LOCAL_PROMPT`.
+2. Extract the `Saved restart prompt: ...` path from that output. Call it `LOCAL_PROMPT`. When reporting the checkpoint back to the user, quote the `Name: ...` line verbatim — never infer the name from `LOCAL_PROMPT`'s filename/slug, which is derived from the session summary and can collide with or differ from the actual saved name.
 3. Ask the helper for a sibling path for the LLM candidate:
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/bin/recall-save-eval.py candidate --local-prompt "$LOCAL_PROMPT"

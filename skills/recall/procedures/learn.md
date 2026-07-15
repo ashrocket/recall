@@ -5,7 +5,19 @@ Review and approve proposed learnings that recall captured from session failure 
 ## Step 1: Run the script
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/bin/recall "$PWD" learn $ARGUMENTS
+RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}
+if [ -z "$RECALL_ROOT" ]; then
+  for candidate in "$HOME/.codex/plugins/cache/recall/recall/"*/bin/recall "$HOME/.claude/plugins/cache/recall/recall/"*/bin/recall; do
+    [ -x "$candidate" ] || continue
+    RECALL_ROOT=${candidate%/bin/recall}
+    break
+  done
+fi
+if [ -z "$RECALL_ROOT" ]; then
+  echo "Could not locate a recall installation" >&2
+  exit 1
+fi
+exec "$RECALL_ROOT/bin/recall" "$PWD" learn $ARGUMENTS
 ```
 
 `$ARGUMENTS` is everything after `learn` (e.g., `--batch`, `--approve 1`, `--reject 2`).

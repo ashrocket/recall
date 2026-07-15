@@ -19,11 +19,11 @@ def format_date(date_input) -> str:
             dt = datetime.fromisoformat(date_input.replace('Z', '+00:00'))
             if dt.tzinfo:
                 dt = dt.replace(tzinfo=None)
-            return dt.strftime('%Y-%m-%d %H:%M')
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
         except (ValueError, TypeError, AttributeError):
-            return date_input[:16]
+            return date_input[:19]
     elif isinstance(date_input, datetime):
-        return date_input.strftime('%Y-%m-%d %H:%M')
+        return date_input.strftime('%Y-%m-%d %H:%M:%S')
     return str(date_input)
 
 

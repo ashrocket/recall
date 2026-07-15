@@ -57,23 +57,23 @@ class TestFormatDate:
     def test_formats_iso_string(self):
         mod = _import_recall_sessions()
         result = mod.format_date("2026-04-24T10:30:00")
-        assert result == "2026-04-24 10:30"
+        assert result == "2026-04-24 10:30:00"
 
     def test_formats_datetime_object(self):
         mod = _import_recall_sessions()
-        dt = datetime(2026, 4, 24, 10, 30)
+        dt = datetime(2026, 4, 24, 10, 30, 15)
         result = mod.format_date(dt)
-        assert result == "2026-04-24 10:30"
+        assert result == "2026-04-24 10:30:15"
 
     def test_truncates_unrecognized_string(self):
         mod = _import_recall_sessions()
         result = mod.format_date("2026-04-24 10:30:00.123456+00:00 extra stuff")
-        assert len(result) == 16
+        assert len(result) == 19
 
     def test_handles_z_suffix(self):
         mod = _import_recall_sessions()
         result = mod.format_date("2026-04-24T10:30:00Z")
-        assert result == "2026-04-24 10:30"
+        assert result == "2026-04-24 10:30:00"
 
 
 # ---------------------------------------------------------------------------

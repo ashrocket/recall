@@ -3,7 +3,19 @@ Search, save, and restart recall sessions for the current project.
 Fast path: run the wrapper, which uses the compiled Rust reader when available and falls back to Python as needed.
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/bin/recall "$PWD" $ARGUMENTS
+RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}
+if [ -z "$RECALL_ROOT" ]; then
+  for candidate in "$HOME/.codex/plugins/cache/recall/recall/"*/bin/recall "$HOME/.claude/plugins/cache/recall/recall/"*/bin/recall; do
+    [ -x "$candidate" ] || continue
+    RECALL_ROOT=${candidate%/bin/recall}
+    break
+  done
+fi
+if [ -z "$RECALL_ROOT" ]; then
+  echo "Could not locate a recall installation" >&2
+  exit 1
+fi
+exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
 ```
 
 Common forms:

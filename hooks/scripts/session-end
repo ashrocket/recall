@@ -2,4 +2,18 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 PYTHON_BIN="${RECALL_PYTHON:-python3}"
-exec "$PYTHON_BIN" "$ROOT/hooks/scripts/session-end.py" "$@"
+
+if [ "${RECALL_SESSION_END_INLINE:-0}" = "1" ]; then
+  exec "$PYTHON_BIN" "$ROOT/hooks/scripts/session-end.py" "$@"
+fi
+
+# Session-end runs during shutdown, so detach the heavier indexing work and
+# return the minimal hook envelope immediately. That avoids "Hook cancelled"
+# when the client tears down the session before indexing finishes.
+nohup "$PYTHON_BIN" "$ROOT/hooks/scripts/session-end.py" "$@" >/dev/null 2>&1 </dev/null &
+case "${RECALL_SESSION_END_STDOUT:-empty}" in
+  json|json-object|codex)
+    printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionEnd"}}'
+    ;;
+esac
+exit 0

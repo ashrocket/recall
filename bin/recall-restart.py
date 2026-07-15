@@ -36,6 +36,7 @@ from lib.shared import (
     get_agents_file,
     load_agents,
     save_agents,
+    resolve_project_root,
 )
 
 # ---------------------------------------------------------------------------
@@ -137,8 +138,33 @@ def find_child_projects(project_folder: str) -> list:
     return sorted(children)
 
 
+def find_parent_projects(project_folder: str) -> list:
+    """Scan ~/.claude/projects/ for ancestor directories that prefix project_folder.
+
+    This keeps nested checkouts from fragmenting restart discovery. We exclude the
+    generic home-level bucket so a child project can inherit from its nearest real
+    workspace root without merging everything under ``~``.
+    """
+    projects_dir = Path.home() / '.claude' / 'projects'
+    if not projects_dir.exists():
+        return []
+
+    home_folder = str(Path.home()).replace('/', '-')
+    parents = []
+    for d in projects_dir.iterdir():
+        if (
+            d.is_dir()
+            and d.name != project_folder
+            and d.name != home_folder
+            and project_folder.startswith(d.name)
+        ):
+            parents.append(d.name)
+
+    return sorted(parents, key=len)
+
+
 def collect_all_entries(project_folder: str) -> list:
-    """Load agents from the current project and all child projects.
+    """Load agents from the current project, ancestor projects, and child projects.
 
     Returns list of (entry, project_folder) tuples.
     """
@@ -147,6 +173,11 @@ def collect_all_entries(project_folder: str) -> list:
     # Current project
     for entry in load_agents(project_folder):
         results.append((entry, project_folder))
+
+    # Parent projects first so nested checkouts can inherit the workspace-level view.
+    for parent in find_parent_projects(project_folder):
+        for entry in load_agents(parent):
+            results.append((entry, parent))
 
     # Child projects
     for child in find_child_projects(project_folder):
@@ -352,7 +383,7 @@ def _launch_entry(entry: dict, project_folder: str):
 
 def cmd_save(args):
     """Save a new restart entry."""
-    working_dir = os.path.abspath(args.working_dir)
+    working_dir = os.path.abspath(resolve_project_root(args.working_dir))
     summary = args.summary
     project_folder = get_project_folder(working_dir)
 
@@ -417,6 +448,8 @@ def cmd_save(args):
     save_agents(agents, project_folder)
 
     # Confirmation
+    display_token = resolved_name or entry_session_name(entry)
+    print(f"Name: {display_token}")
     print(f"Saved: {summary}")
     print(f"  Project: {project_folder}")
     print(f"  Role: {role} | Platform: {platform}")

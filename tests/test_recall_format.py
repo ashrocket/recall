@@ -59,15 +59,15 @@ def _write_index(proj_dir: Path, index: dict):
 
 class TestFormatDate:
     def test_iso_string(self):
-        assert format_date("2026-04-24T10:30:00") == "2026-04-24 10:30"
+        assert format_date("2026-04-24T10:30:00") == "2026-04-24 10:30:00"
 
     def test_datetime_object(self):
-        dt = datetime(2026, 4, 24, 10, 30)
-        assert format_date(dt) == "2026-04-24 10:30"
+        dt = datetime(2026, 4, 24, 10, 30, 15)
+        assert format_date(dt) == "2026-04-24 10:30:15"
 
     def test_z_suffix(self):
         result = format_date("2026-04-24T10:30:00Z")
-        assert result == "2026-04-24 10:30"
+        assert result == "2026-04-24 10:30:00"
 
     def test_fallback_on_non_parseable(self):
         result = format_date("not-a-date-string")

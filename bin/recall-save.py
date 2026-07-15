@@ -28,6 +28,7 @@ from lib.shared import (  # noqa: E402
     load_index,
     load_session_details,
     read_session_title,
+    resolve_project_root,
 )
 from lib.text_rank import rank_texts, slug_from_text, top_terms  # noqa: E402
 
@@ -37,7 +38,12 @@ PATH_RE = re.compile(
 )
 
 
-def run_command(args: list[str], cwd: str | None = None, timeout: int = 10) -> tuple[int, str]:
+def run_command(
+    args: list[str],
+    cwd: str | None = None,
+    timeout: int = 10,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str]:
     """Run a local command and return ``(returncode, combined_output)``."""
     try:
         result = subprocess.run(
@@ -46,6 +52,7 @@ def run_command(args: list[str], cwd: str | None = None, timeout: int = 10) -> t
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=env,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
         return 1, str(exc)
@@ -100,40 +107,111 @@ def find_latest_codex_rollout_for(working_dir: str) -> Optional[Path]:
     return None
 
 
-def find_current_claude_transcript(working_dir: str) -> Optional[Path]:
-    """Return the newest non-agent Claude transcript JSONL for *working_dir*.
-
-    A live Claude session writes its JSONL continuously, so the freshest
-    non-``agent-`` transcript is the session the user is saving from.
-    """
+def _candidate_claude_project_dirs(working_dir: str) -> list[Path]:
+    """Return project dirs that may contain Claude transcripts for *working_dir*."""
     try:
-        folders = set(get_project_folders(working_dir))
+        folders = list(dict.fromkeys(get_project_folders(working_dir)))
     except (OSError, ValueError):
+        return []
+    return [Path.home() / ".claude" / "projects" / folder for folder in folders if folder]
+
+
+def _transcript_matches_session_id(path: Path, session_id: str) -> bool:
+    """Return whether *path* appears to be the Claude transcript for *session_id*."""
+    if path.stem == session_id:
+        return True
+    try:
+        with open(path, "r") as handle:
+            for _ in range(80):
+                raw = handle.readline()
+                if not raw:
+                    break
+                try:
+                    obj = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("sessionId") == session_id:
+                    return True
+                payload = obj.get("payload")
+                if isinstance(payload, dict) and payload.get("sessionId") == session_id:
+                    return True
+    except OSError:
+        return False
+    return False
+
+
+def find_claude_transcript_by_session_id(working_dir: str, session_id: str) -> Optional[Path]:
+    """Return the Claude transcript matching *session_id* for this project."""
+    if not session_id:
         return None
-    newest_path = None
-    newest_mtime = None
-    for folder in folders:
-        if not folder:
+    for claude_dir in _candidate_claude_project_dirs(working_dir):
+        if not claude_dir.exists():
             continue
-        claude_dir = Path.home() / ".claude" / "projects" / folder
+        exact = claude_dir / f"{session_id}.jsonl"
+        if exact.exists() and not exact.name.startswith("agent-"):
+            return exact
+        for session_file in claude_dir.glob("*.jsonl"):
+            if session_file.name.startswith("agent-"):
+                continue
+            if _transcript_matches_session_id(session_file, session_id):
+                return session_file
+    return None
+
+
+def _claude_transcripts_by_mtime(working_dir: str) -> list[tuple[Path, float]]:
+    """Return non-agent Claude transcripts for this project, newest first."""
+    transcripts = []
+    for claude_dir in _candidate_claude_project_dirs(working_dir):
         if not claude_dir.exists():
             continue
         for session_file in claude_dir.glob("*.jsonl"):
             if session_file.name.startswith("agent-"):
                 continue
             try:
-                mtime = session_file.stat().st_mtime
+                transcripts.append((session_file, session_file.stat().st_mtime))
             except OSError:
                 continue
-            if newest_mtime is None or mtime > newest_mtime:
-                newest_mtime = mtime
-                newest_path = session_file
+    transcripts.sort(key=lambda item: item[1], reverse=True)
+    return transcripts
+
+
+def has_ambiguous_active_claude_transcripts(
+    working_dir: str,
+    within_seconds: int = 300,
+) -> bool:
+    """Return whether mtime fallback would be unsafe for this project."""
+    transcripts = _claude_transcripts_by_mtime(working_dir)
+    if len(transcripts) < 2:
+        return False
+    newest = transcripts[0][1]
+    return any(newest - mtime <= within_seconds for _path, mtime in transcripts[1:])
+
+
+def find_current_claude_transcript(
+    working_dir: str,
+    session_id: str = "",
+) -> Optional[Path]:
+    """Return the current non-agent Claude transcript JSONL for *working_dir*.
+
+    When a session id is known, exact transcript identity wins over mtime so a
+    concurrent session in the same project cannot steal `/recall save`.
+    """
+    by_session = find_claude_transcript_by_session_id(working_dir, session_id)
+    if by_session is not None:
+        return by_session
+
+    newest_path = None
+    newest_mtime = None
+    for session_file, mtime in _claude_transcripts_by_mtime(working_dir):
+        if newest_mtime is None or mtime > newest_mtime:
+            newest_mtime = mtime
+            newest_path = session_file
     return newest_path
 
 
-def _latest_claude_session_mtime(working_dir: str) -> Optional[float]:
+def _latest_claude_session_mtime(working_dir: str, session_id: str = "") -> Optional[float]:
     """mtime of the newest Claude session JSONL for this project, if any."""
-    path = find_current_claude_transcript(working_dir)
+    path = find_current_claude_transcript(working_dir, session_id=session_id)
     if path is None:
         return None
     try:
@@ -142,7 +220,7 @@ def _latest_claude_session_mtime(working_dir: str) -> Optional[float]:
         return None
 
 
-def detect_auto_platform(working_dir: str) -> tuple[str, Optional[Path]]:
+def detect_auto_platform(working_dir: str, session_id: str = "") -> tuple[str, Optional[Path]]:
     """Pick the platform with the freshest session evidence.
 
     A Codex rollout existing for this directory is not enough — a live
@@ -152,7 +230,7 @@ def detect_auto_platform(working_dir: str) -> tuple[str, Optional[Path]]:
     rollout = find_latest_codex_rollout_for(working_dir)
     if rollout is None:
         return "claude", None
-    claude_mtime = _latest_claude_session_mtime(working_dir)
+    claude_mtime = _latest_claude_session_mtime(working_dir, session_id=session_id)
     try:
         rollout_mtime = rollout.stat().st_mtime
     except OSError:
@@ -162,13 +240,17 @@ def detect_auto_platform(working_dir: str) -> tuple[str, Optional[Path]]:
     return "codex", rollout
 
 
-def index_current_session(working_dir: str, platform: str = "auto") -> str:
+def index_current_session(
+    working_dir: str,
+    platform: str = "auto",
+    claude_session_id: str = "",
+) -> str:
     """Index the current session with the cheapest available local parser."""
     if platform == "none":
         return "Indexing skipped (--platform none)."
 
     if platform == "auto":
-        platform, codex_rollout = detect_auto_platform(working_dir)
+        platform, codex_rollout = detect_auto_platform(working_dir, session_id=claude_session_id)
     elif platform == "codex":
         codex_rollout = find_latest_codex_rollout_for(working_dir)
     else:
@@ -182,18 +264,24 @@ def index_current_session(working_dir: str, platform: str = "auto") -> str:
         return output if code == 0 else f"Codex indexing failed: {output}"
 
     script = ROOT / "hooks" / "scripts" / "session-end.py"
-    code, output = run_command(["python3", str(script), working_dir], cwd=working_dir, timeout=20)
+    args = ["python3", str(script), working_dir]
+    transcript = find_current_claude_transcript(working_dir, session_id=claude_session_id)
+    if claude_session_id == "" and has_ambiguous_active_claude_transcripts(working_dir):
+        return "Multiple active Claude transcripts found; indexing skipped because current session id is unavailable."
+    if transcript is not None:
+        args.extend(["--session-file", str(transcript)])
+    code, output = run_command(args, cwd=working_dir, timeout=20)
     return output if code == 0 else f"Claude indexing failed: {output}"
 
 
-def registration_platform(working_dir: str, requested: str) -> str:
+def registration_platform(working_dir: str, requested: str, claude_session_id: str = "") -> str:
     """Choose the platform label to store with the restart entry."""
     if requested == "claude":
         return "claude"
     if requested == "codex":
         return "codex"
     if requested == "auto":
-        return detect_auto_platform(working_dir)[0]
+        return detect_auto_platform(working_dir, session_id=claude_session_id)[0]
     return "codex"
 
 
@@ -442,6 +530,15 @@ def cmux_get_resume_checkpoint() -> str:
         return ""
 
 
+def current_claude_session_id() -> str:
+    """Return the best known Claude session id for this invocation."""
+    for key in ("CLAUDE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CLAUDECODE_SESSION_ID"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+    return cmux_get_resume_checkpoint()
+
+
 def cmux_register_recall(
     working_dir: str,
     prompt_path: Path,
@@ -481,10 +578,15 @@ def cmux_register_recall(
 
 
 def save_restart(working_dir: str, platform: str = "auto", skip_index: bool = False, name: str = "") -> int:
-    working_dir = os.path.abspath(working_dir)
+    working_dir = os.path.abspath(resolve_project_root(working_dir))
+    resume_checkpoint = current_claude_session_id()
     index_output = "Indexing skipped."
     if not skip_index:
-        index_output = index_current_session(working_dir, platform=platform)
+        index_output = index_current_session(
+            working_dir,
+            platform=platform,
+            claude_session_id=resume_checkpoint,
+        )
 
     project_folder, _raw_folder = get_project_folders(working_dir)
     if index_output_has_current_session(index_output, skip_index or platform == "none"):
@@ -503,10 +605,13 @@ def save_restart(working_dir: str, platform: str = "auto", skip_index: bool = Fa
     )
     prompt_path = unique_prompt_path(project_folder, slug)
     prompt_path.write_text(prompt)
-    entry_platform = registration_platform(working_dir, platform)
-    transcript_path = find_current_claude_transcript(working_dir) if entry_platform == "claude" else None
+    entry_platform = registration_platform(working_dir, platform, claude_session_id=resume_checkpoint)
+    transcript_path = (
+        find_current_claude_transcript(working_dir, session_id=resume_checkpoint)
+        if entry_platform == "claude"
+        else None
+    )
     resolved_name = resolve_restart_name(name, entry_platform, transcript_path)
-    resume_checkpoint = cmux_get_resume_checkpoint()
     registration_output = register_restart(
         working_dir,
         summary,

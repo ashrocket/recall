@@ -233,6 +233,39 @@ class TestFindChildProjects:
 
 
 # ---------------------------------------------------------------------------
+# find_parent_projects
+# ---------------------------------------------------------------------------
+
+class TestFindParentProjects:
+    def test_finds_ancestor_projects(self, tmp_path):
+        mod = _import_recall_restart()
+        projects_dir = tmp_path / ".claude" / "projects"
+        (projects_dir / "myapp").mkdir(parents=True)
+        (projects_dir / "myapp-feature").mkdir()
+        (projects_dir / "myapp-feature-sub").mkdir()
+        (projects_dir / "other").mkdir()
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path):
+            result = mod.find_parent_projects("myapp-feature-sub")
+
+        assert set(result) == {"myapp", "myapp-feature"}
+        assert "other" not in result
+        assert "myapp-feature-sub" not in result
+
+    def test_excludes_home_level_bucket(self, tmp_path):
+        mod = _import_recall_restart()
+        projects_dir = tmp_path / ".claude" / "projects"
+        home_bucket = "-" + str(tmp_path).replace("/", "-").lstrip("-")
+        (projects_dir / home_bucket).mkdir(parents=True)
+        (projects_dir / f"{home_bucket}-child").mkdir()
+
+        with mock.patch.object(mod.Path, "home", return_value=tmp_path):
+            result = mod.find_parent_projects(f"{home_bucket}-child")
+
+        assert home_bucket not in result
+
+
+# ---------------------------------------------------------------------------
 # collect_all_entries
 # ---------------------------------------------------------------------------
 
@@ -241,6 +274,7 @@ class TestCollectAllEntries:
         mod = _import_recall_restart()
         entry = {"id": 1, "summary": "fix auth", "date": "2026-04-24"}
         with mock.patch.object(mod, "load_agents", return_value=[entry]), \
+             mock.patch.object(mod, "find_parent_projects", return_value=[]), \
              mock.patch.object(mod, "find_child_projects", return_value=[]):
             result = mod.collect_all_entries("myapp")
         assert len(result) == 1
@@ -252,9 +286,14 @@ class TestCollectAllEntries:
         child_entry = {"id": 2, "summary": "child task"}
 
         def _load_agents(pf):
-            return [parent_entry] if pf == "myapp" else [child_entry]
+            if pf == "myapp":
+                return [parent_entry]
+            if pf == "myapp-feature":
+                return [child_entry]
+            return []
 
         with mock.patch.object(mod, "load_agents", side_effect=_load_agents), \
+             mock.patch.object(mod, "find_parent_projects", return_value=[]), \
              mock.patch.object(mod, "find_child_projects", return_value=["myapp-feature"]):
             result = mod.collect_all_entries("myapp")
 
@@ -262,9 +301,31 @@ class TestCollectAllEntries:
         assert (parent_entry, "myapp") in result
         assert (child_entry, "myapp-feature") in result
 
+    def test_collects_from_parent_projects(self):
+        mod = _import_recall_restart()
+        parent_entry = {"id": 1, "summary": "parent task"}
+        current_entry = {"id": 2, "summary": "current task"}
+
+        def _load_agents(pf):
+            if pf == "myapp":
+                return [current_entry]
+            if pf == "workspace":
+                return [parent_entry]
+            return []
+
+        with mock.patch.object(mod, "load_agents", side_effect=_load_agents), \
+             mock.patch.object(mod, "find_parent_projects", return_value=["workspace"]), \
+             mock.patch.object(mod, "find_child_projects", return_value=[]):
+            result = mod.collect_all_entries("myapp")
+
+        assert len(result) == 2
+        assert (current_entry, "myapp") in result
+        assert (parent_entry, "workspace") in result
+
     def test_empty_when_no_agents(self):
         mod = _import_recall_restart()
         with mock.patch.object(mod, "load_agents", return_value=[]), \
+             mock.patch.object(mod, "find_parent_projects", return_value=[]), \
              mock.patch.object(mod, "find_child_projects", return_value=[]):
             result = mod.collect_all_entries("myapp")
         assert result == []
@@ -422,6 +483,44 @@ class TestCmdSave:
         out = capsys.readouterr().out
         assert "deploy pipeline" in out
 
+    def test_prints_name_line_when_explicit_name_given(self, capsys):
+        """Regression: the resolved name must be echoed, not left for the
+        caller to infer from the prompt file slug (see the userhappy/
+        figmafixes mismatch — the entry was named correctly but nothing in
+        stdout said so, so the calling agent misreported the slug instead)."""
+        mod = _import_recall_restart()
+        with mock.patch.object(mod, "load_agents", return_value=[]), \
+             mock.patch.object(mod, "save_agents"), \
+             mock.patch.object(mod, "get_project_folder", return_value="myapp"):
+            mod.cmd_save(self._make_args(name="figmafixes", summary="userhappy"))
+        out = capsys.readouterr().out
+        assert "Name: figmafixes" in out
+
+    def test_prints_fallback_token_when_no_name_given(self, capsys):
+        mod = _import_recall_restart()
+        with mock.patch.object(mod, "load_agents", return_value=[]), \
+             mock.patch.object(mod, "save_agents"), \
+             mock.patch.object(mod, "get_project_folder", return_value="myapp"):
+            mod.cmd_save(self._make_args(name="", summary="Fix auth bug"))
+        out = capsys.readouterr().out
+        assert "Name: fix-auth-bug" in out
+
+    def test_nested_git_working_dir_is_saved_as_repo_root(self, tmp_path):
+        mod = _import_recall_restart()
+        import subprocess
+
+        repo = tmp_path / "repo"
+        nested = repo / "Resources" / "Sprites"
+        nested.mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        saved = []
+
+        with mock.patch.object(mod, "load_agents", return_value=[]), \
+             mock.patch.object(mod, "save_agents", side_effect=lambda entries, pf: saved.extend(entries)):
+            mod.cmd_save(self._make_args(working_dir=str(nested)))
+
+        assert saved[0]["working_directory"] == str(repo)
+
 
 class TestNamedRestartDedup:
     def _make_args(self, **kwargs):
@@ -475,6 +574,22 @@ class TestNamedRestartDedup:
             mod.cmd_save(self._make_args(name="", summary="Fix auth bug"))
         assert saved[0].get("name", "") == ""
         assert mod.entry_session_name(saved[0]) == "fix-auth-bug"
+
+    def test_printed_name_matches_deduped_stored_value(self, capsys):
+        """The printed Name: line must reflect the post-dedup name actually
+        stored, not the raw pre-collision arg — otherwise the confirmation
+        would point at a token that doesn't resolve to this entry."""
+        mod = _import_recall_restart()
+        existing = [{"id": 1, "name": "Auth Refactor", "summary": "x"}]
+        saved = []
+        with mock.patch.object(mod, "load_agents", return_value=existing), \
+             mock.patch.object(mod, "save_agents", side_effect=lambda e, pf: saved.extend(e)), \
+             mock.patch.object(mod, "get_project_folder", return_value="myapp"):
+            mod.cmd_save(self._make_args(name="auth refactor"))
+        out = capsys.readouterr().out
+        stored_name = saved[-1]["name"]
+        assert stored_name != "auth refactor"
+        assert f"Name: {stored_name}" in out
 
 
 # ---------------------------------------------------------------------------

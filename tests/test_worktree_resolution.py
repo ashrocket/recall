@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.shared import (
     _resolve_worktree_by_path,
+    resolve_git_root,
+    resolve_project_root,
     resolve_worktree_root,
     update_worktree_registry,
     get_project_folder,
@@ -181,13 +183,33 @@ class TestGetProjectFolderWorktree:
 
     def test_normal_repo_unchanged(self, tmp_path):
         """When resolve_worktree_root returns None, get_project_folder
-        behaves exactly as before (cwd.replace('/', '-'))."""
+        behaves exactly as before for non-git directories."""
         normal_cwd = "/home/user/my-project"
 
         with mock.patch("lib.shared.resolve_worktree_root", return_value=None):
             result = get_project_folder(normal_cwd)
 
         assert result == "-home-user-my-project"
+
+    def test_git_subdirectory_resolves_to_repo_root(self, tmp_path):
+        """A drifted shell inside a repo should still use the repo project."""
+        repo = tmp_path / "repo"
+        nested = repo / "Resources" / "Sprites"
+        nested.mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+
+        result = get_project_folder(str(nested))
+
+        assert result == str(repo).replace("/", "-")
+
+    def test_resolve_project_root_returns_git_root_for_subdirectory(self, tmp_path):
+        repo = tmp_path / "repo"
+        nested = repo / "src" / "deep"
+        nested.mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+
+        assert resolve_git_root(str(nested)) == str(repo)
+        assert resolve_project_root(str(nested)) == str(repo)
 
     def test_env_var_fallback_still_works(self):
         """CLAUDE_PROJECT_DIR env var is still respected when cwd is None."""

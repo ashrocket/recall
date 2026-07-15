@@ -28,3 +28,11 @@ def test_hook_wrapper_scripts_are_executable():
         path = ROOT / "hooks" / "scripts" / name
         assert path.exists()
         assert os.access(path, os.X_OK)
+
+
+def test_session_end_wrapper_detaches_background_work():
+    wrapper = (ROOT / "hooks" / "scripts" / "session-end").read_text()
+    assert "nohup" in wrapper
+    assert "RECALL_SESSION_END_STDOUT" in wrapper
+    assert "json|json-object|codex" in wrapper
+    assert "RECALL_SESSION_END_INLINE" in wrapper

@@ -195,6 +195,24 @@ class TestPruneIndex:
         assert result["sessions"] == {}
 
 
+class TestSaveSessionDetails:
+    def test_returns_false_on_permission_error(self, tmp_path):
+        mod = _import_codex_session_end()
+        details_dir = tmp_path / "details"
+        with mock.patch.object(mod, "get_session_details_dir", return_value=details_dir):
+            with mock.patch("builtins.open", side_effect=PermissionError("denied")):
+                result = mod.save_session_details("project", "session-1", {"hello": "world"})
+        assert result is False
+
+
+class TestSaveIndexSafely:
+    def test_returns_false_on_permission_error(self):
+        mod = _import_codex_session_end()
+        with mock.patch.object(mod, "save_index", side_effect=PermissionError("denied")):
+            result = mod.save_index_safely({"sessions": {}}, "project")
+        assert result is False
+
+
 # ---------------------------------------------------------------------------
 # _extract_exit_code
 # ---------------------------------------------------------------------------

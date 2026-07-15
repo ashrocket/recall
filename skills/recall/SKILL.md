@@ -16,7 +16,19 @@ Do not reason over session history in-model. Dispatch to local scripts and show 
 - everything else (`help`, empty, `list`, `last`, `failures`, `stats`, `cleanup`, `knowledge`, or an arbitrary search term / slash-delimited regex):
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/bin/recall "$PWD" $ARGUMENTS
+RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}
+if [ -z "$RECALL_ROOT" ]; then
+  for candidate in "$HOME/.codex/plugins/cache/recall/recall/"*/bin/recall "$HOME/.claude/plugins/cache/recall/recall/"*/bin/recall; do
+    [ -x "$candidate" ] || continue
+    RECALL_ROOT=${candidate%/bin/recall}
+    break
+  done
+fi
+if [ -z "$RECALL_ROOT" ]; then
+  echo "Could not locate a recall installation" >&2
+  exit 1
+fi
+exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
 ```
 
 `bin/recall` uses the compiled Rust fast path when available and falls back to Python for unsupported or uncompiled paths.
