@@ -35,6 +35,10 @@ worker/node_modules/
 # Review/coordination docs (one-time, not part of the project)
 ReviewCoord.md
 
+# /cheaploop scratch output (may contain sensitive session content, e.g.
+# security review findings — never belongs in a public commit)
+.cheaploop/
+
 # Other AI tool scratch dirs
 .adal/
 .agents/
