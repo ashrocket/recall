@@ -7,7 +7,7 @@ Providers (git, cloud) implement the SyncProvider interface.
 
 import abc
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List, Optional, Dict
 
 from lib.sync_config import SyncConfig
@@ -59,6 +59,30 @@ def get_provider(name: str) -> type:
     if name not in _providers:
         raise ValueError(f"Unknown sync provider: {name}. Available: {list(_providers.keys())}")
     return _providers[name]
+
+
+_PULL_ALLOWED_PREFIXES = tuple(f"{subdir}/" for subdir in SYNC_CATEGORIES.values())
+
+
+def is_safe_pull_relative_path(relative_path: str) -> bool:
+    """Return whether *relative_path* is a legitimate sync-pull target.
+
+    Pulled paths come from a remote (a shared git repo or cloud bucket) and
+    must never be trusted to place files outside recall's own sync
+    categories. A safe path: is relative, has no ``..`` traversal component,
+    lives under one of the known ``SYNC_CATEGORIES`` subdirectories, and is a
+    ``.yaml`` file — the same shape ``gather_sync_files`` produces on push.
+    Anything else (``settings.json``, dotfiles, absolute paths, symlink
+    escapes) is rejected so a malicious/compromised remote cannot plant hook
+    config or overwrite files outside the sync tree.
+    """
+    if not relative_path or not relative_path.endswith(".yaml"):
+        return False
+    if PurePosixPath(relative_path).is_absolute():
+        return False
+    if ".." in PurePosixPath(relative_path).parts:
+        return False
+    return relative_path.startswith(_PULL_ALLOWED_PREFIXES)
 
 
 def gather_sync_files(

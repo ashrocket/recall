@@ -1046,3 +1046,76 @@ class TestBuildLaunchCommandName:
         cmd, _ = mod._build_launch_command(entry, "proj")
         assert "-n " not in cmd
         assert "| claude" in cmd
+
+
+# ---------------------------------------------------------------------------
+# Security regression: shell/AppleScript injection via stored entry fields
+# (security review F2 — working_directory/team/summary/checkpoint were
+# interpolated into a single-quoted shell string with no escaping, then into
+# an AppleScript do-script literal, giving a stored-data RCE)
+# ---------------------------------------------------------------------------
+
+class TestLaunchCommandInjectionHardening:
+    def test_working_directory_quote_breakout_is_neutralized(self):
+        mod = _import_recall_restart()
+        evil = "/tmp'; touch /tmp/PWNED_recall_test; echo '"
+        entry = {"working_directory": evil, "prompt_file": "", "summary": "hi", "team": ""}
+        cmd, _ = mod._build_launch_command(entry, "proj")
+        tokens = shlex.split(cmd)
+        assert "cd" in tokens
+        assert tokens[tokens.index("cd") + 1] == evil
+        assert "touch" not in tokens
+
+    def test_team_quote_breakout_is_neutralized(self):
+        mod = _import_recall_restart()
+        evil = "x'; touch /tmp/PWNED_recall_test; echo '"
+        entry = {"working_directory": "/tmp", "prompt_file": "", "summary": "hi", "team": evil}
+        cmd, _ = mod._build_launch_command(entry, "proj")
+        tokens = shlex.split(cmd)
+        assert "touch" not in tokens
+
+    def test_summary_quote_breakout_is_neutralized(self):
+        mod = _import_recall_restart()
+        evil = "hi'; touch /tmp/PWNED_recall_test; echo '"
+        entry = {"working_directory": "/tmp", "prompt_file": "", "summary": evil, "team": ""}
+        cmd, _ = mod._build_launch_command(entry, "proj")
+        tokens = shlex.split(cmd)
+        assert "touch" not in tokens
+
+    def test_resume_checkpoint_quote_breakout_is_neutralized(self):
+        mod = _import_recall_restart()
+        evil = "x'; touch /tmp/PWNED_recall_test; echo '"
+        working_dir = "/tmp/app"
+        cmd = f"cd {shlex.quote(working_dir)} && claude --resume {shlex.quote(evil)}"
+        tokens = shlex.split(cmd)
+        assert "touch" not in tokens
+        assert tokens[tokens.index("--resume") + 1] == evil
+
+    def test_applescript_literal_escapes_double_quote_and_backslash(self):
+        mod = _import_recall_restart()
+        raw = 'echo ' + shlex.quote("it's \"quoted\" \\ text")
+        escaped = mod._applescript_string_literal(raw)
+        # The escaped form must not contain an unescaped " or \
+        import re
+        unescaped_quote = re.search(r'(?<!\\)"', escaped)
+        assert unescaped_quote is None
+        # Re-deriving the raw string from the escaped one should round-trip
+        assert escaped.replace('\\"', '"').replace('\\\\', '\\') == raw
+
+    def test_launch_entry_applescript_arg_has_no_unescaped_quote(self, capsys):
+        """End-to-end: a malicious working_directory must not let the do-script
+        AppleScript string literal terminate early."""
+        mod = _import_recall_restart()
+        evil = 'x" & do shell script "touch /tmp/PWNED_recall_test'
+        entry = {"summary": "hi", "prompt_file": "", "working_directory": evil, "team": "", "workers": []}
+        err = mod.subprocess.CalledProcessError(1, "osascript", stderr=b"err")
+        with mock.patch.object(mod, "get_project_dir", return_value=Path("/tmp/app")), \
+             mock.patch.object(mod, "get_ticket_ids", return_value=[]), \
+             mock.patch.object(mod, "get_theme", return_value=("Basic", "")), \
+             mock.patch.object(mod.subprocess, "run", side_effect=err) as mock_run:
+            mod._launch_entry(entry, "myapp")
+        applescript = mock_run.call_args[0][0][2]
+        import re
+        do_script_line = next(line for line in applescript.splitlines() if "do script" in line)
+        body = do_script_line.split('do script "', 1)[1].rsplit('"', 1)[0]
+        assert re.search(r'(?<!\\)"', body) is None

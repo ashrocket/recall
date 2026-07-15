@@ -146,6 +146,101 @@ def test_maybe_sync_pull_writes_files(tmp_path):
     assert (tmp_path / "restarts" / "test.yaml").read_bytes() == b"name: test\n"
 
 
+# ---------------------------------------------------------------------------
+# Security regression: sync-pull path traversal / hook injection
+# (security review F1 — a malicious/compromised remote could plant an
+# arbitrary file anywhere under the user's filesystem, including
+# ~/.claude/settings.json, giving zero-click hook injection on next
+# session start)
+# ---------------------------------------------------------------------------
+
+def test_pull_blocks_path_traversal_outside_data_dir(tmp_path):
+    from lib.sync_config import SyncConfig
+    from lib.sync_hooks import maybe_sync_pull
+
+    config = SyncConfig(provider="cloud", auto_sync=True)
+    outside_target = tmp_path.parent / "PWNED_recall_test.yaml"
+    outside_target.unlink(missing_ok=True)
+
+    mock_provider = MagicMock()
+    mock_provider.pull.return_value = [
+        {"path": "../PWNED_recall_test.yaml", "content": b"evil: true\n"},
+    ]
+
+    with patch("lib.sync_hooks.load_sync_config", return_value=config), \
+         patch("lib.sync_hooks.get_provider", return_value=lambda: mock_provider):
+        result = maybe_sync_pull(data_dir=tmp_path)
+
+    assert result["pulled"] == 0
+    assert result.get("blocked") == 1
+    assert not outside_target.exists()
+    outside_target.unlink(missing_ok=True)
+
+
+def test_pull_blocks_settings_json_overwrite(tmp_path):
+    """A pulled path targeting settings.json (hook injection) must be rejected
+    even though it resolves inside data_dir — only known sync categories are
+    writable."""
+    from lib.sync_config import SyncConfig
+    from lib.sync_hooks import maybe_sync_pull
+
+    config = SyncConfig(provider="cloud", auto_sync=True)
+
+    mock_provider = MagicMock()
+    mock_provider.pull.return_value = [
+        {"path": "settings.json", "content": b'{"hooks": {"PreToolUse": "evil"}}'},
+    ]
+
+    with patch("lib.sync_hooks.load_sync_config", return_value=config), \
+         patch("lib.sync_hooks.get_provider", return_value=lambda: mock_provider):
+        result = maybe_sync_pull(data_dir=tmp_path)
+
+    assert result["pulled"] == 0
+    assert result.get("blocked") == 1
+    assert not (tmp_path / "settings.json").exists()
+
+
+def test_pull_blocks_dotfile_outside_categories(tmp_path):
+    from lib.sync_config import SyncConfig
+    from lib.sync_hooks import maybe_sync_pull
+
+    config = SyncConfig(provider="cloud", auto_sync=True)
+
+    mock_provider = MagicMock()
+    mock_provider.pull.return_value = [
+        {"path": "../.ssh/authorized_keys", "content": b"ssh-rsa AAAA...\n"},
+    ]
+
+    with patch("lib.sync_hooks.load_sync_config", return_value=config), \
+         patch("lib.sync_hooks.get_provider", return_value=lambda: mock_provider):
+        result = maybe_sync_pull(data_dir=tmp_path)
+
+    assert result["pulled"] == 0
+    assert result.get("blocked") == 1
+
+
+def test_pull_allows_legitimate_category_paths_alongside_blocked_ones(tmp_path):
+    """A malicious entry in the same pull batch must not block legitimate files."""
+    from lib.sync_config import SyncConfig
+    from lib.sync_hooks import maybe_sync_pull
+
+    config = SyncConfig(provider="cloud", auto_sync=True)
+
+    mock_provider = MagicMock()
+    mock_provider.pull.return_value = [
+        {"path": "restarts/legit.yaml", "content": b"name: legit\n"},
+        {"path": "../../etc/PWNED_recall_test.yaml", "content": b"evil: true\n"},
+    ]
+
+    with patch("lib.sync_hooks.load_sync_config", return_value=config), \
+         patch("lib.sync_hooks.get_provider", return_value=lambda: mock_provider):
+        result = maybe_sync_pull(data_dir=tmp_path)
+
+    assert result["pulled"] == 1
+    assert result.get("blocked") == 1
+    assert (tmp_path / "restarts" / "legit.yaml").read_bytes() == b"name: legit\n"
+
+
 def test_pull_skips_when_manual_mode(tmp_path):
     """maybe_sync_pull returns None when mode is manual."""
     from lib.sync_config import SyncConfig

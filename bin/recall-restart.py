@@ -254,17 +254,29 @@ def _resolve_prompt_path(entry: dict, project_folder: str) -> str | None:
     return None
 
 
+def _applescript_string_literal(value: str) -> str:
+    """Escape *value* for embedding in a double-quoted AppleScript string literal.
+
+    ``shlex.quote()`` protects the shell layer but can itself introduce ``"``
+    characters (its single-quote-escaping fallback); those must in turn be
+    escaped for the outer AppleScript ``do script "..."`` literal, or a
+    quote/backslash in stored entry data (working dir, summary, checkpoint,
+    ...) breaks out of both layers and runs arbitrary shell commands.
+    """
+    return value.replace('\\', '\\\\').replace('"', '\\"')
+
+
 def _build_launch_command(entry: dict, project_folder: str) -> tuple[str, str | None]:
     """Build the shell command used by the explicit separate-window launcher."""
     working_dir = entry.get('working_directory', os.getcwd())
     prompt_path = _resolve_prompt_path(entry, project_folder)
 
     parts = ["unset CLAUDECODE"]
-    parts.append(f"cd '{working_dir}'")
+    parts.append(f"cd {shlex.quote(working_dir)}")
 
     team = entry.get('team', '')
     if team:
-        parts.append(f"export CLAUDE_TEAM='{team}'")
+        parts.append(f"export CLAUDE_TEAM={shlex.quote(team)}")
 
     name = entry.get('name', '')
     claude_cmd = "claude"
@@ -272,10 +284,10 @@ def _build_launch_command(entry: dict, project_folder: str) -> tuple[str, str | 
         claude_cmd = f"claude -n {shlex.quote(name)}"
 
     if prompt_path:
-        parts.append(f"cat '{prompt_path}' | {claude_cmd}")
+        parts.append(f"cat {shlex.quote(prompt_path)} | {claude_cmd}")
     else:
         summary = entry.get('summary', 'Restart session')
-        parts.append(f"echo '{summary}' | {claude_cmd}")
+        parts.append(f"echo {shlex.quote(summary)} | {claude_cmd}")
 
     return ' && '.join(parts), prompt_path
 
@@ -320,7 +332,7 @@ def _launch_entry(entry: dict, project_folder: str):
     applescript = f'''
     tell application "Terminal"
         activate
-        set newTab to do script "{cmd}"
+        set newTab to do script "{_applescript_string_literal(cmd)}"
         try
             set current settings of newTab to settings set "{theme_name}"
         end try
@@ -894,7 +906,7 @@ def _launch_resume_entry(entry: dict):
         print(f"Error: no resume checkpoint stored for this entry.", file=sys.stderr)
         return
 
-    cmd = f"cd '{working_dir}' && claude --resume '{checkpoint}'"
+    cmd = f"cd {shlex.quote(working_dir)} && claude --resume {shlex.quote(checkpoint)}"
 
     text = entry.get('summary', '') + ' ' + entry.get('working_directory', '')
     ids = get_ticket_ids(text)
@@ -903,7 +915,7 @@ def _launch_resume_entry(entry: dict):
     applescript = f'''
     tell application "Terminal"
         activate
-        set newTab to do script "{cmd}"
+        set newTab to do script "{_applescript_string_literal(cmd)}"
         try
             set current settings of newTab to settings set "{theme_name}"
         end try

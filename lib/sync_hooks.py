@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from lib.sync_config import load_sync_config, SyncConfig
-from lib.sync import gather_sync_files, get_provider
+from lib.sync import gather_sync_files, get_provider, is_safe_pull_relative_path
 
 
 def maybe_sync_push(data_dir: Path = None) -> Optional[dict]:
@@ -63,21 +63,39 @@ def maybe_sync_pull(data_dir: Path = None) -> Optional[dict]:
 
         pulled = provider.pull(since=since, config=config)
 
+        base_dir = (data_dir or Path.home() / ".claude").resolve()
+        written = 0
+        blocked = 0
         for f in pulled:
-            dest = (data_dir or Path.home() / ".claude") / f["path"]
+            path = f["path"]
+            if not is_safe_pull_relative_path(path):
+                blocked += 1
+                print(f"  sync: blocked unsafe pull path {path!r}", file=sys.stderr)
+                continue
+
+            dest = (base_dir / path).resolve()
+            if dest != base_dir and base_dir not in dest.parents:
+                blocked += 1
+                print(f"  sync: blocked pull path outside sync dir {path!r}", file=sys.stderr)
+                continue
+
             dest.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(f["content"], bytes):
                 dest.write_bytes(f["content"])
             else:
                 dest.write_text(f["content"])
+            written += 1
 
         from datetime import datetime, timezone
         ts_file.parent.mkdir(parents=True, exist_ok=True)
         ts_file.write_text(datetime.now(timezone.utc).isoformat())
 
-        if pulled:
-            print(f"  sync: pulled {len(pulled)} files from {config.provider}")
-        return {"pulled": len(pulled)}
+        if written:
+            print(f"  sync: pulled {written} files from {config.provider}")
+        result = {"pulled": written}
+        if blocked:
+            result["blocked"] = blocked
+        return result
 
     except Exception as e:
         print(f"  sync: pull failed ({e})", file=sys.stderr)
