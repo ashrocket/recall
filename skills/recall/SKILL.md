@@ -1,7 +1,7 @@
 ---
 name: recall
 description: Use when searching local recall session memory, saving or restarting checkpoints, showing recurring failures, or reviewing pending learnings.
-version: 3.3.1
+version: 3.4.0
 ---
 
 # recall — fast dispatch

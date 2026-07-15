@@ -13,7 +13,7 @@
 
 `Accumulate → Extract → Restart`
 
-[![Version](https://img.shields.io/badge/version-3.3.1-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
+[![Version](https://img.shields.io/badge/version-3.4.0-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 [![License](https://img.shields.io/badge/license-MIT-56b6c2?style=flat-square&labelColor=12151e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Gemini%20CLI-98c379?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 
