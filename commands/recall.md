@@ -5,10 +5,10 @@ Fast path: run the wrapper, which uses the compiled Rust reader when available a
 ```bash
 RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}
 if [ -z "$RECALL_ROOT" ]; then
-  for candidate in "$HOME/.codex/plugins/cache/recall/recall/"*/bin/recall "$HOME/.claude/plugins/cache/recall/recall/"*/bin/recall; do
-    [ -x "$candidate" ] || continue
-    RECALL_ROOT=${candidate%/bin/recall}
-    break
+  for base in "$HOME/.claude/plugins/cache/recall/recall" "$HOME/.codex/plugins/cache/recall/recall"; do
+    [ -d "$base" ] || continue
+    latest=$(ls -1 "$base" 2>/dev/null | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+    [ -n "$latest" ] && [ -x "$base/$latest/bin/recall" ] && RECALL_ROOT="$base/$latest" && break
   done
 fi
 if [ -z "$RECALL_ROOT" ]; then
