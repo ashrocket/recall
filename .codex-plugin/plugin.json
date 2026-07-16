@@ -1,6 +1,6 @@
 {
   "name": "recall",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "description": "Consistent context across work sessions. Accumulate, distill, restart.",
   "author": {
     "name": "ashrocket collective",
