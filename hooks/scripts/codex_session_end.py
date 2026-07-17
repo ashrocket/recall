@@ -35,7 +35,14 @@ from datetime import datetime
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from lib.shared import get_project_folders, load_index, save_index, get_session_details_dir, categorize_error
+from lib.shared import (
+    atomic_write_json,
+    get_project_folders,
+    load_index,
+    save_index,
+    get_session_details_dir,
+    categorize_error,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +95,7 @@ def save_session_details(project_folder: str, session_id: str, details: dict) ->
         details_dir = get_session_details_dir(project_folder)
         details_dir.mkdir(parents=True, exist_ok=True)
         details_file = details_dir / f"{session_id}.json"
-        with open(details_file, "w") as f:
-            json.dump(details, f, indent=2, default=str)
+        atomic_write_json(details_file, details, indent=2, default=str)
         return True
     except OSError as exc:
         print(f"Recall SessionEnd skipped: {exc}", file=sys.stderr)

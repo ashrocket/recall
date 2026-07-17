@@ -19,6 +19,7 @@ import re
 # Add lib to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from lib.shared import (
+    atomic_write_json,
     get_project_folder,
     get_project_folders,
     get_session_details_dir,
@@ -272,8 +273,7 @@ def save_session_details(project_folder: str, session_id: str, details: dict):
     details_dir.mkdir(parents=True, exist_ok=True)
 
     details_file = details_dir / f"{session_id}.json"
-    with open(details_file, 'w') as f:
-        json.dump(details, f, indent=2, default=str)
+    atomic_write_json(details_file, details, indent=2, default=str)
 
 
 def create_session_summary(session_data: dict) -> dict:

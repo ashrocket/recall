@@ -309,13 +309,20 @@ def import_index(project_folder: str, import_path: str):
         return
 
     # Handle both direct index and wrapped export format
-    if 'index' in data and 'exported_at' in data:
+    if isinstance(data, dict) and 'index' in data and 'exported_at' in data:
         # Wrapped export format
         index = data['index']
         print(f"Importing from backup created: {data.get('exported_at', 'unknown')}")
     else:
         # Direct index format
         index = data
+
+    # Reject anything that isn't a real index before it clobbers the current
+    # one — a malformed or unrelated JSON file would otherwise silently
+    # overwrite (and, if not backed up, destroy) the project's session history.
+    if not isinstance(index, dict) or 'sessions' not in index:
+        print("Error: File does not contain a valid recall index (expected an object with a 'sessions' key).")
+        return
 
     # Backup current index first
     current_index_path = get_index_path(project_folder)

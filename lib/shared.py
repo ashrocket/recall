@@ -15,6 +15,33 @@ from pathlib import Path
 from typing import Optional, Callable, Tuple
 
 
+def atomic_write_json(path: Path, data, **json_kwargs) -> None:
+    """Write JSON to *path* atomically via a temp file + rename.
+
+    A plain ``open(path, 'w')`` truncates the target file immediately, so a
+    crash, OOM kill, or even a mid-serialization exception (e.g. a circular
+    reference) leaves a zero-byte or partially-written file — silently
+    destroying every session, learning, and restart previously stored there.
+    Writing to a sibling temp file first and swapping it in with
+    ``os.replace`` (atomic on POSIX and Windows) means the original file is
+    only ever replaced by a fully-written one.
+    """
+    path = Path(path)
+    tmp_path = path.parent / f".{path.name}.tmp{os.getpid()}"
+    try:
+        with open(tmp_path, 'w') as f:
+            json.dump(data, f, **json_kwargs)
+        os.replace(tmp_path, path)
+    finally:
+        # If json.dump (or the replace) raised, drop the partial temp file
+        # rather than leaving it behind; the original file is untouched.
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
@@ -40,8 +67,7 @@ def _load_worktree_registry() -> dict:
 def _save_worktree_registry(registry: dict):
     """Save *registry* to ``~/.claude/recall-worktrees.json``, creating parents."""
     WORKTREE_REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(WORKTREE_REGISTRY_PATH, 'w') as f:
-        json.dump(registry, f, indent=2, default=str)
+    atomic_write_json(WORKTREE_REGISTRY_PATH, registry, indent=2, default=str)
 
 
 def _resolve_worktree_by_path(cwd: str) -> Optional[str]:
@@ -393,8 +419,7 @@ def save_index(index: dict, project_folder: str = None, prune_fn: Callable = Non
         index = prune_fn(index)
 
     index_file = index_dir / 'recall-index.json'
-    with open(index_file, 'w') as f:
-        json.dump(index, f, indent=2, default=str)
+    atomic_write_json(index_file, index, indent=2, default=str)
 
 
 # ---------------------------------------------------------------------------
@@ -465,8 +490,7 @@ def save_agents(agents: list, project_folder: str = None, filename: str = 'agent
     """Persist agents metadata to disk."""
     agents_file = get_agents_file(project_folder, filename)
     agents_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(agents_file, 'w') as f:
-        json.dump(agents, f, indent=2, default=str)
+    atomic_write_json(agents_file, agents, indent=2, default=str)
 
 
 # ---------------------------------------------------------------------------
