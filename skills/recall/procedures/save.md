@@ -1,6 +1,6 @@
-# /recall save — A/B Restart Checkpoint
+# `$recall save` — A/B Restart Checkpoint
 
-`/recall save <name>` records `<name>` as the restart's name (shown in the prompt box, `/resume` picker, and terminal title when reopened with `--launch`). With no argument the name comes from the Claude session's title, then a summary slug.
+`$recall save <name>` records `<name>` as the restart's name (shown in the prompt box and terminal title when reopened with `--launch`). With no argument the name comes from the session title when available, then a summary slug.
 
 For now, save runs both approaches so we can compare quality:
 
@@ -19,7 +19,7 @@ For now, save runs both approaches so we can compare quality:
      exit 1
    fi
    ```
-1. Run the local extractor and show its output. When the user supplied a name after `/recall save` (it arrives as `$ARGUMENTS`), forward it as `--name` so the restart and its `--launch` session are named:
+1. Run the local extractor and show its output. When the user supplied a name after `$recall save` (it arrives as `$ARGUMENTS`), forward it as `--name` so the restart and its `--launch` session are named:
    ```bash
    python3 "$RECALL_ROOT/bin/recall-save.py" "$PWD" --name "$ARGUMENTS"
    ```
@@ -39,7 +39,7 @@ For now, save runs both approaches so we can compare quality:
    python3 "$RECALL_ROOT/bin/recall-save-eval.py" log "$PWD" --local-prompt "$LOCAL_PROMPT" --llm-prompt "$LLM_PROMPT" --winner local|llm|tie --reason "<one sentence>"
    ```
 
-The local extractor registers the initial restart entry. If the comparison winner is `llm`, the eval logger promotes the matching restart registry entry to the LLM prompt so `/recall restart` loads the better handoff.
+The local extractor registers the initial restart entry. If the comparison winner is `llm`, the eval logger promotes the matching restart registry entry to the LLM prompt so `$recall restart` loads the better handoff.
 
 ## Quality Guidelines
 

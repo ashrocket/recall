@@ -8,6 +8,11 @@ version: 3.4.1
 
 Do not reason over session history in-model. Dispatch to local scripts and show their output.
 
+## Codex invocation
+
+In Codex, this skill is invoked as `$recall`, not `/recall`. Treat `$ARGUMENTS`
+as the text after `$recall`; never tell a Codex user to type a slash command.
+
 ## Routes
 
 - `save*`: read `skills/recall/procedures/save.md`; pass everything after `save` as `$ARGUMENTS` (an optional restart name).

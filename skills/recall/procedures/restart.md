@@ -1,6 +1,6 @@
-# /recall restart — Resume a Saved Session
+# `$recall restart` — Resume a Saved Session
 
-`$ARGUMENTS` is everything after `restart` from the original `/recall restart [...]` invocation.
+`$ARGUMENTS` is everything after `restart` from the original `$recall restart [...]` invocation.
 
 ## Setup
 

@@ -1,4 +1,4 @@
-# /recall learn — Review Pending Learnings
+# `$recall learn` — Review Pending Learnings
 
 Review and approve proposed learnings that recall captured from session failure patterns.
 
@@ -32,4 +32,4 @@ Show the full output.
 - Run again with `--approve <N>` or `--reject <N>` as needed
 - If they want to approve everything, suggest `--batch`
 
-Active learnings surface in `/recall failures` and are injected into future sessions via the SessionStart hook.
+Active learnings surface in `$recall failures` and are injected into future sessions via the SessionStart hook.
