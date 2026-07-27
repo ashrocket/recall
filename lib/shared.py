@@ -486,6 +486,33 @@ _ERROR_PATTERNS = [
 ]
 
 
+_EXPECTED_EXIT_ONE = re.compile(r"^\s*(?:rg|grep|pgrep|diff|cmp)\b")
+_FAILURE_PREFIX = re.compile(
+    r"^\s*(?:error\s*:|fatal:|failed\b|exception\s*:|traceback \(most recent call last\)|"
+    r"permission denied\b|command not found\b|no such file or directory\b)",
+    re.IGNORECASE,
+)
+
+
+def is_failure_output(output: str, exit_code: Optional[int] = None, command: str = "") -> bool:
+    """Return whether a tool result is a real operational failure.
+
+    An exit status is authoritative when available. A handful of inspection
+    commands use exit code 1 to mean an empty result, which should not become
+    a memory failure. Without an exit status, only an error at the start of
+    the result is accepted; matching arbitrary text would classify logs,
+    fixtures, and successful search output as failures.
+    """
+    if exit_code is not None:
+        if exit_code == 0:
+            return False
+        if exit_code == 1 and _EXPECTED_EXIT_ONE.match(command or ""):
+            return False
+        return True
+
+    return bool(_FAILURE_PREFIX.search(output or ""))
+
+
 def categorize_error(error_msg: str) -> str:
     """Categorize a shell/tool error message into a pattern type."""
     error_lower = error_msg.lower()

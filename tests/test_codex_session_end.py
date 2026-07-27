@@ -348,6 +348,36 @@ class TestParseCodexRollout:
         result = mod.parse_codex_rollout(lines)
         assert len(result["failures"]) == 1
 
+    def test_success_with_historical_error_text_is_not_a_failure(self):
+        mod = _import_codex_session_end()
+        lines = [
+            self._meta_line(),
+            self._tool_call_line("rg -n error README.md", call_id="c1"),
+            self._tool_output_line("c1", "README: historical Error: example\nProcess exited with code 0"),
+        ]
+        result = mod.parse_codex_rollout(lines)
+        assert result["failures"] == []
+
+    def test_empty_search_exit_is_not_a_failure(self):
+        mod = _import_codex_session_end()
+        lines = [
+            self._meta_line(),
+            self._tool_call_line("rg nonexistent-pattern", call_id="c1"),
+            self._tool_output_line("c1", "Process exited with code 1"),
+        ]
+        result = mod.parse_codex_rollout(lines)
+        assert result["failures"] == []
+
+    def test_search_usage_error_remains_a_failure(self):
+        mod = _import_codex_session_end()
+        lines = [
+            self._meta_line(),
+            self._tool_call_line("rg --not-a-real-option", call_id="c1"),
+            self._tool_output_line("c1", "error: Found argument\nProcess exited with code 2"),
+        ]
+        result = mod.parse_codex_rollout(lines)
+        assert len(result["failures"]) == 1
+
     def test_success_not_counted_as_failure(self):
         mod = _import_codex_session_end()
         lines = [

@@ -35,7 +35,14 @@ from datetime import datetime
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from lib.shared import get_project_folders, load_index, save_index, get_session_details_dir, categorize_error
+from lib.shared import (
+    categorize_error,
+    get_project_folders,
+    get_session_details_dir,
+    is_failure_output,
+    load_index,
+    save_index,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -226,18 +233,8 @@ def parse_codex_rollout(lines: list) -> dict:
                 call_id = payload.get("call_id", "")
                 output = payload.get("output", "") or ""
                 exit_code = _extract_exit_code(output)
-                is_failure = exit_code is not None and exit_code != 0
-
-                if not is_failure:
-                    # Also catch error keywords even if exit code is missing
-                    is_failure = any(
-                        kw in output.lower()
-                        for kw in ["error:", "traceback", "exception", "permission denied",
-                                   "no such file", "command not found"]
-                    )
-
-                if is_failure and call_id in pending_calls:
-                    command = pending_calls[call_id]
+                command = pending_calls.get(call_id, "")
+                if is_failure_output(output, exit_code, command) and command:
                     result["failures"].append({
                         "command": command,
                         "error": output[:200],

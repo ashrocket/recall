@@ -22,6 +22,7 @@ from lib.shared import (
     get_project_folder,
     get_project_folders,
     get_session_details_dir,
+    is_failure_output,
     load_index as _shared_load_index,
     save_index as _shared_save_index,
     categorize_error,
@@ -53,28 +54,9 @@ TOPIC_STOP_WORDS = {
 # Trivial messages to skip in summary generation
 TRIVIAL_MESSAGES = {'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'y', 'n', 'continue', 'go ahead', 'do it'}
 
-# Failure markers for tool results that did NOT report is_error (e.g. exit
-# code masked by a pipe). High-precision only: substrings that rarely appear
-# in successful output, plus line-anchored markers so quoted code in diff or
-# cat output ('+  assert "not found" ...') is not misread as a failure.
-FAILURE_SUBSTRINGS = (
-    'command not found',
-    'permission denied',
-    'no such file or directory',
-    'traceback (most recent call last)',
-)
-FAILURE_LINE_RE = re.compile(
-    r'^\s*(?:error\b\s*:|fatal:|failed\b|\d+ failed\b|exception\b\s*:)',
-    re.IGNORECASE | re.MULTILINE,
-)
-
-
 def looks_like_failure_output(text: str) -> bool:
-    """Detect failure output when the platform did not flag is_error."""
-    lower = text.lower()
-    if any(marker in lower for marker in FAILURE_SUBSTRINGS):
-        return True
-    return bool(FAILURE_LINE_RE.search(text))
+    """Compatibility wrapper for conservative shared failure detection."""
+    return is_failure_output(text)
 
 
 def _find_sessions_in_folder(project_folder: str) -> list:
