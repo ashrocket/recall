@@ -26,34 +26,34 @@ By default, load restart prompts into the current session. Do not open separate 
 
 **If** no argument or argument is **`list`**: List all saved restarts with their numbered position and named-session token.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" list
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" list
 ```
 
 **If** argument is **`summary`** or **`summarize`**: Show a compact numbered review list for selecting old restarts.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" summary
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" summary
 ```
 
 **If** argument starts with **`delete`**, **`rm`**, or **`remove`**: Delete one saved restart by list number, exact name, or unique text match. Prefer a number from the current list or summary when pruning old prompts.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" delete <number>
-python3 "$RECALL_ROOT/bin/recall-restart.py" delete "<name-or-unique-text>"
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" delete <number>
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" delete "<name-or-unique-text>"
 ```
 
 **If** argument starts with **`--launch`** or **`-l`**: Open a separate Terminal/Claude window for that restart.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" launch <number>
-python3 "$RECALL_ROOT/bin/recall-restart.py" match --launch "<text>"
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" launch <number>
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" match --launch "<text>"
 ```
 
 **If** argument is a **number**: Load that specific restart by its list position.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" show <number>
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" show <number>
 ```
 Follow the printed Restart Instructions in the current session.
 
 **If** argument is **text** (not a number): Search restarts by named-session token first, then by summary, prompt path, prompt contents, and goal.
 ```bash
-python3 "$RECALL_ROOT/bin/recall-restart.py" match "<text>"
+RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-restart.py" match "<text>"
 ```
 If a match is found, follow the printed Restart Instructions in the current session.

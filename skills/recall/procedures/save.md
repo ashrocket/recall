@@ -21,11 +21,11 @@ For now, save runs both approaches so we can compare quality:
    ```
 1. Run the local extractor and show its output. When the user supplied a name after `$recall save` (it arrives as `$ARGUMENTS`), forward it as `--name` so the restart and its `--launch` session are named:
    ```bash
-   python3 "$RECALL_ROOT/bin/recall-save.py" "$PWD" --name "$ARGUMENTS"
+   RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-save.py" "$PWD" --name "$ARGUMENTS"
    ```
    With no name, drop the flag:
    ```bash
-   python3 "$RECALL_ROOT/bin/recall-save.py" "$PWD"
+   RECALL_AGENT=codex python3 "$RECALL_ROOT/bin/recall-save.py" "$PWD"
    ```
 2. Extract the `Saved restart prompt: ...` path from that output. Call it `LOCAL_PROMPT`. When reporting the checkpoint back to the user, quote the `Name: ...` line verbatim — the filename slug is derived from the given/resolved name when one exists (falling back to the session summary only when neither an explicit name nor a session title is available), but treat it as a filesystem-safe abbreviation, not a substitute for the actual reported name.
 3. Ask the helper for a sibling path for the LLM candidate:

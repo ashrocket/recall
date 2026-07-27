@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from lib.platform import detect_platform, get_sessions_dir, Platform
+from lib.platform import detect_platform, get_sessions_dir, recall_command, Platform
 
 
 class TestDetectPlatform:
@@ -77,3 +77,19 @@ class TestGetSessionsDir:
         """Platform values can be compared to plain strings."""
         assert Platform.CODEX == "codex"
         assert Platform.CLAUDE_CODE == "claude-code"
+
+
+class TestRecallCommand:
+    def test_uses_codex_skill_syntax_for_explicit_agent(self, monkeypatch):
+        monkeypatch.setenv("RECALL_AGENT", "codex")
+        assert recall_command("restart", "summary") == "$recall restart summary"
+
+    def test_uses_codex_skill_syntax_when_codex_environment_is_present(self, monkeypatch):
+        monkeypatch.setenv("CODEX_SESSION_ID", "codex-session")
+        assert recall_command("failures") == "$recall failures"
+
+    def test_defaults_to_claude_slash_syntax(self, monkeypatch):
+        monkeypatch.delenv("RECALL_AGENT", raising=False)
+        for var in ("CODEX_VERSION", "CODEX_SESSION_ID", "CODEX_PROJECT"):
+            monkeypatch.delenv(var, raising=False)
+        assert recall_command("help") == "/recall help"

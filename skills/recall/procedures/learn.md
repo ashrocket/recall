@@ -17,7 +17,7 @@ if [ -z "$RECALL_ROOT" ]; then
   echo "Could not locate a recall installation" >&2
   exit 1
 fi
-exec "$RECALL_ROOT/bin/recall" "$PWD" learn $ARGUMENTS
+RECALL_AGENT=codex exec "$RECALL_ROOT/bin/recall" "$PWD" learn $ARGUMENTS
 ```
 
 `$ARGUMENTS` is everything after `learn` (e.g., `--batch`, `--approve 1`, `--reject 2`).

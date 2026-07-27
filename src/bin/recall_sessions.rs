@@ -1228,31 +1228,47 @@ fn show_stats(index: &Value) {
 }
 
 fn show_help() {
-    println!("## /recall Help");
+    println!("## {} Help", recall_command(""));
     println!();
-    println!("`/recall` is one command with script-backed subcommands and search fallback.");
+    println!("`{}` is one command with script-backed subcommands and search fallback.", recall_command(""));
     println!();
     println!("### Core");
-    println!("  `/recall`                    List recent sessions");
-    println!("  `/recall list`               List recent sessions");
-    println!("  `/recall last`               Show the previous session");
-    println!("  `/recall <term>`             Search messages, commands, failures, skills");
-    println!("  `/recall '.p8'`              Search for a literal token or filename fragment");
-    println!("  `/recall /.*\\.p8/`           Regex search");
-    println!("  `/recall /*\\.p8/`            Forgiving regex shorthand for the same search");
+    println!("  `{}`                    List recent sessions", recall_command(""));
+    println!("  `{}`               List recent sessions", recall_command("list"));
+    println!("  `{}`               Show the previous session", recall_command("last"));
+    println!("  `{}`             Search messages, commands, failures, skills", recall_command("<term>"));
+    println!("  `{}`              Search for a literal token or filename fragment", recall_command("'.p8'"));
+    println!("  `{}`           Regex search", recall_command("/.*\\.p8/"));
+    println!("  `{}`            Forgiving regex shorthand for the same search", recall_command("/*\\.p8/"));
     println!();
     println!("### Workflow");
-    println!("  `/recall save`               Save current work as a restart prompt");
-    println!("  `/recall restart`            List saved restart prompts");
-    println!("  `/recall restart <n|text>`   Load by list number, or match by text");
-    println!("  `/recall restart --launch <n|text>`");
+    println!("  `{}`               Save current work as a restart prompt", recall_command("save"));
+    println!("  `{}`            List saved restart prompts", recall_command("restart"));
+    println!("  `{}`   Load by list number, or match by text", recall_command("restart <n|text>"));
+    println!("  `{}`", recall_command("restart --launch <n|text>"));
     println!("                              Open the restart in a separate window");
-    println!("  `/recall learn`              Review pending learnings");
-    println!("  `/recall failures`           Show failure patterns and approved learnings");
+    println!("  `{}`              Review pending learnings", recall_command("learn"));
+    println!("  `{}`           Show failure patterns and approved learnings", recall_command("failures"));
     println!();
     println!("### Maintenance");
-    println!("  `/recall stats`              Show usage stats");
-    println!("  `/recall knowledge`          Show loaded knowledge");
-    println!("  `/recall cleanup`            Analyze cleanup opportunities");
-    println!("  `/recall help`               Show this help");
+    println!("  `{}`              Show usage stats", recall_command("stats"));
+    println!("  `{}`          Show loaded knowledge", recall_command("knowledge"));
+    println!("  `{}`            Analyze cleanup opportunities", recall_command("cleanup"));
+    println!("  `{}`               Show this help", recall_command("help"));
+}
+
+fn recall_command(suffix: &str) -> String {
+    let prefix = if std::env::var("RECALL_AGENT")
+        .map(|value| value.eq_ignore_ascii_case("codex"))
+        .unwrap_or(false)
+    {
+        "$recall"
+    } else {
+        "/recall"
+    };
+    if suffix.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{} {}", prefix, suffix)
+    }
 }

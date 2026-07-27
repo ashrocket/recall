@@ -17,6 +17,7 @@ from pathlib import Path
 # Add lib to path
 LIB_DIR = Path(__file__).resolve().parent.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
+sys.path.insert(0, str(LIB_DIR.parent))
 
 from knowledge import (
     get_pending_learnings,
@@ -29,6 +30,7 @@ from knowledge import (
     BUCKETS,
     DEFAULT_BUCKET,
 )
+from lib.platform import recall_command
 
 
 def format_learning(learning: dict, index: int) -> str:
@@ -82,7 +84,7 @@ def show_pending(project_folder: str):
         print()
         print()
         if approved:
-            print(f"You have {len(approved)} approved learnings. Use `/recall failures` to view them.")
+            print(f"You have {len(approved)} approved learnings. Use `{recall_command('failures')}` to view them.")
         return
 
     # Group pending by bucket for display
@@ -116,9 +118,9 @@ def show_pending(project_folder: str):
 
     print("---")
     print("**Actions:**")
-    print("  `/recall learn --batch` - Accept all pending learnings")
-    print("  `/recall learn --approve 0` - Approve learning #0")
-    print("  `/recall learn --reject 0` - Reject learning #0")
+    print(f"  `{recall_command('learn', '--batch')}` - Accept all pending learnings")
+    print(f"  `{recall_command('learn', '--approve', '0')}` - Approve learning #0")
+    print(f"  `{recall_command('learn', '--reject', '0')}` - Reject learning #0")
 
 
 def batch_approve(project_folder: str):
@@ -127,7 +129,7 @@ def batch_approve(project_folder: str):
     if count > 0:
         print(f"## Approved {count} learnings")
         print()
-        print("These will now appear in `/recall failures` and session start context.")
+        print(f"These will now appear in `{recall_command('failures')}` and session-start context.")
     else:
         print("No pending learnings to approve.")
 

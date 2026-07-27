@@ -33,7 +33,7 @@ if [ -z "$RECALL_ROOT" ]; then
   echo "Could not locate a recall installation" >&2
   exit 1
 fi
-exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
+RECALL_AGENT=codex exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
 ```
 
 `bin/recall` uses the compiled Rust fast path when available and falls back to Python for unsupported or uncompiled paths.

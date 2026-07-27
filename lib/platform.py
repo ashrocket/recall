@@ -34,6 +34,19 @@ def detect_platform() -> Platform:
     return Platform.UNKNOWN
 
 
+def recall_command(*parts: str) -> str:
+    """Format a Recall invocation for the active agent surface.
+
+    Codex exposes Recall as a skill invocation (``$recall``), while Claude
+    Code exposes it as a slash command. ``RECALL_AGENT`` is an explicit
+    override for hooks and scripts where the host does not forward its usual
+    platform environment variables.
+    """
+    agent = os.environ.get("RECALL_AGENT", "").strip().lower()
+    prefix = "$recall" if agent == "codex" or detect_platform() == Platform.CODEX else "/recall"
+    return " ".join((prefix, *parts))
+
+
 def get_sessions_dir(platform: Platform = None) -> Path:
     """Return the directory where the platform writes session files."""
     if platform is None:
