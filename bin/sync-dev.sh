@@ -38,8 +38,15 @@ echo "Installed: $INSTALL_PATH"
 $DRY_RUN && echo "(dry run — no files will change)" && echo ""
 
 INSTALL_PATHS=("$INSTALL_PATH")
-CODEX_INSTALL_PATH="$HOME/.codex/plugins/cache/recall/recall/3.3.0"
-if [[ -d "$CODEX_INSTALL_PATH" && "$CODEX_INSTALL_PATH" != "$INSTALL_PATH" ]]; then
+# Codex cache directories are versioned. Select the current installed version
+# instead of silently leaving a newer cache on an obsolete development build.
+CODEX_CACHE_ROOT="$HOME/.codex/plugins/cache/recall/recall"
+CODEX_INSTALL_PATH=""
+if [[ -d "$CODEX_CACHE_ROOT" ]]; then
+    CODEX_INSTALL_PATH=$(find "$CODEX_CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d -print \
+        | sort -V | tail -n 1)
+fi
+if [[ -n "$CODEX_INSTALL_PATH" && "$CODEX_INSTALL_PATH" != "$INSTALL_PATH" ]]; then
     INSTALL_PATHS+=("$CODEX_INSTALL_PATH")
 fi
 
@@ -66,11 +73,13 @@ for INSTALL_PATH in "${INSTALL_PATHS[@]}"; do
     echo "→ root files"
     rsync "${RSYNC_OPTS[@]}" \
         --exclude=".git/" \
+        --exclude=".cheaploop/" \
         --exclude="__pycache__/" \
         --exclude="*.pyc" \
         --exclude=".pytest_cache/" \
         --exclude="target/" \
         --exclude="BACKLOG.md" \
+        --exclude="usertesting-feedback*.md" \
         --exclude=".DS_Store" \
         --exclude=".claude/" \
         --exclude="bug*.md" \

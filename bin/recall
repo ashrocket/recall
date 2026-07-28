@@ -22,6 +22,11 @@ shift
 SUBCOMMAND=${1:-}
 
 case "$SUBCOMMAND" in
+  jobs)
+    shift || true
+    # A drain without --project intentionally scans every project queue.
+    exec python3 "$ROOT/bin/recall-jobs.py" "$@"
+    ;;
   export|import|reset|cleanup|knowledge)
     exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" "$@"
     ;;

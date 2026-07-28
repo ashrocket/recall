@@ -153,3 +153,18 @@ grep -roE '#[0-9a-fA-F]{6}\b' src worker --include='*.tsx' --include='*.ts' --in
 ## Non-Claude agents (Codex etc.)
 Everything you need is in this file — no CLAUDE.md, MCP, or memory-dir access assumed. Repo facts that normally live in CLAUDE.md: two Vitest configs (never run worker tests with the root config); `dev` branch auto-deploys on push; demo/prod deploy only via a separate manual CI trigger; PRs always base `dev`.
 ````
+
+---
+
+## Round 2 — second save/eval cycle, same session (later that night)
+
+Exercised the full flow a second time (`save <name>` → `candidate` → LLM prompt → `log --winner llm` → promote → pbcopy for a session restart). The eval handshake worked flawlessly again. The save itself found four new bugs:
+
+1. **Indexing hook crash on a claude-code session.** `hooks/scripts/codex_session_end.py` threw `TypeError: expected string or bytes-like object, got 'list'` in `_extract_exit_code` (`re.search` handed a list — an output field that can be a list of chunks, not a string). A claude-code session should arguably never enter the codex hook at all.
+2. **Platform misattribution.** The checkpoint registered as `Role: lead | Platform: codex` — this is a claude-code session. Likely the same code path as bug 1.
+3. **Crash produces a husk, reported as success.** Because indexing died, the local prompt was empty — `Session Focus: Session checkpoint`, zero key signals, zero commands, zero files, `Session ID: not indexed` — yet the CLI printed the normal "Saved restart prompt" success output. Success theater: fail loudly, or fall back to the last good index (this same session was indexed fine earlier in the night).
+4. **Git context read from the stale shared checkout.** "Recent Commits" listed the dirty main checkout's HEAD, which sits dozens of merges behind `origin/dev` (this repo does feature work in worktrees; the checkout is rarely current). A restart prompt anchored to stale commits misleads the next agent — prefer `origin/<branch>` after a fetch, or at least label the drift.
+
+Also confirmed from Round 1: the named save (`save <name>`) registers the name correctly but the prompt filename slug still comes from elsewhere (this one landed as `<project>-8.prompt` — a counter, which at least won't mislead like a stale title slug, but still isn't the given name).
+
+**Net take after two rounds:** the eval/promote loop is the best part of the tool and survived both rounds untouched. The local extractor is the weak link — round 1 it captured noise, round 2 it captured nothing and said "Saved" anyway. If only one thing gets fixed, make save's failure modes loud.

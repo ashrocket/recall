@@ -24,11 +24,15 @@ If the script is not installed, skip silently.
 
 ## At session end
 
-When finishing a session (or when the user asks you to save/checkpoint), index it:
+When finishing a session, Recall queues an exact transcript path and indexes it
+asynchronously. For diagnosis or recovery, drain the queue:
 
 ```bash
-python3 ~/.recall/hooks/scripts/codex_session_end.py --latest "$PWD" 2>/dev/null
+~/.recall/bin/recall "$PWD" jobs drain
 ```
+
+`codex_session_end.py --latest` is a deliberately ambiguous manual recovery
+tool only; automatic SessionEnd processing must never use it.
 
 ## Commands
 

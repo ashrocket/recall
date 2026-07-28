@@ -53,6 +53,7 @@ TOPIC_STOP_WORDS = {
 
 # Trivial messages to skip in summary generation
 TRIVIAL_MESSAGES = {'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'y', 'n', 'continue', 'go ahead', 'do it'}
+_HOOK_EVENT = None
 
 def looks_like_failure_output(text: str) -> bool:
     """Compatibility wrapper for conservative shared failure detection."""
@@ -404,13 +405,68 @@ def should_emit_session_end_json() -> bool:
 
 
 def emit_session_end_output():
-    """Emit the minimal Codex-compatible SessionEnd hook object when required."""
+    """Emit the minimal host-specific hook response, never progress text."""
+    # Codex sends the low-level Stop contract. Its valid acknowledgement is an
+    # empty JSON object, not Claude's hookSpecificOutput envelope.
+    if isinstance(_HOOK_EVENT, dict) and str(_HOOK_EVENT.get("hook_event_name", "")).lower() == "stop":
+        print("{}")
+        return
     if should_emit_session_end_json():
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionEnd"}}))
 
 
+def _event_source_path() -> str:
+    """Return an exact path supplied by the host event, never a mtime guess.
+
+    The documented escape hatch is RECALL_SESSION_FILE.  A few host event
+    spellings are accepted only when received as explicit JSON input; unknown
+    schemas deliberately skip rather than indexing another session.
+    """
+    value = os.environ.get("RECALL_SESSION_FILE", "")
+    if value:
+        return value
+    global _HOOK_EVENT
+    if sys.stdin.isatty():
+        return ""
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, OSError):
+        return ""
+    if not isinstance(event, dict):
+        return ""
+    _HOOK_EVENT = event
+    for key in ("session_file", "source_path", "transcript_path"):
+        if isinstance(event.get(key), str):
+            return event[key]
+    return ""
+
+
+def enqueue_hook_job():
+    """Bounded SessionEnd adapter: validate and enqueue, then always return."""
+    from lib.session_jobs import JobError, enqueue
+    source = _event_source_path()
+    platform = os.environ.get("RECALL_SESSION_PLATFORM", "").lower()
+    if not platform:
+        is_codex_stop = isinstance(_HOOK_EVENT, dict) and str(_HOOK_EVENT.get("hook_event_name", "")).lower() == "stop"
+        platform = "codex" if is_codex_stop or os.environ.get("RECALL_AGENT") == "codex" or any(k.startswith("CODEX_") for k in os.environ) else "claude"
+    cwd = os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("CODEX_PROJECT") or os.getcwd()
+    project_folder, _ = get_project_folders(cwd)
+    if not source:
+        warn_and_skip_hook("no exact transcript path supplied; queue not created")
+        emit_session_end_output()
+        return
+    try:
+        enqueue(platform, source, cwd, project_folder)
+    except (JobError, OSError) as exc:
+        warn_and_skip_hook(str(exc))
+    emit_session_end_output()
+
+
 def main():
     args = sys.argv[1:]
+    if "--enqueue" in args:
+        enqueue_hook_job()
+        return
     session_file_override = os.environ.get('RECALL_SESSION_FILE', '')
     if '--session-file' in args:
         idx = args.index('--session-file')
@@ -419,6 +475,22 @@ def main():
             sys.exit(2)
         session_file_override = args[idx + 1]
         del args[idx:idx + 2]
+
+        # The legacy explicit-file command remains supported, but now takes
+        # the same locked atomic commit path as a queued worker.  Automatic
+        # hooks never reach this branch.
+        from lib.session_indexing import apply_indexed_session
+        cwd = os.environ.get('CLAUDE_PROJECT_DIR') or (args[0] if args else os.getcwd())
+        project_folder, _ = get_project_folders(cwd)
+        try:
+            apply_indexed_session(project_folder, 'claude', Path(session_file_override), None)
+            # recall-save combines stderr with stdout and uses this stable
+            # prefix to decide whether it can read the newly indexed session.
+            print(f"Indexed session {Path(session_file_override).stem} (shared index service)", file=sys.stderr)
+        except (OSError, ValueError) as exc:
+            warn_and_skip_hook(str(exc))
+        emit_session_end_output()
+        return
 
     # Get project path from environment or argument
     cwd = os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()

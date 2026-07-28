@@ -2,6 +2,7 @@
 """Tests for hooks/scripts/session-end.py."""
 
 import importlib.util
+import io
 import json
 import os
 import sys
@@ -772,6 +773,56 @@ class TestSessionEndSaveIndex:
 # ---------------------------------------------------------------------------
 
 class TestSessionEndMain:
+    def test_explicit_claude_file_reports_compatibility_success(self, tmp_path, capsys):
+        mod = _import_session_end()
+        source = tmp_path / "current.jsonl"
+        source.write_text("{}\n")
+        with mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch("lib.session_indexing.apply_indexed_session") as apply, \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "empty"}, clear=False), \
+             mock.patch.object(sys, "argv", ["session-end.py", "--session-file", str(source), str(tmp_path)]):
+            mod.main()
+        apply.assert_called_once_with("proj", "claude", source, None)
+        assert "Indexed session current (shared index service)" in capsys.readouterr().err
+
+    def test_enqueue_without_exact_source_skips_without_mtime_lookup(self, capsys):
+        mod = _import_session_end()
+        with mock.patch.object(mod, "_event_source_path", return_value=""), \
+             mock.patch.object(mod, "find_current_session", side_effect=AssertionError("must not select latest")), \
+             mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "empty"}, clear=False), \
+             mock.patch.object(sys, "argv", ["session-end.py", "--enqueue"]):
+            mod.main()
+        assert capsys.readouterr().out == ""
+
+    def test_enqueue_uses_explicit_source_only(self, capsys):
+        mod = _import_session_end()
+        with mock.patch.object(mod, "_event_source_path", return_value="/exact/session.jsonl"), \
+             mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch("lib.session_jobs.enqueue") as enqueue, \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_PLATFORM": "claude", "RECALL_SESSION_END_STDOUT": "empty"}, clear=False), \
+             mock.patch.object(sys, "argv", ["session-end.py", "--enqueue"]):
+            mod.main()
+        enqueue.assert_called_once_with("claude", "/exact/session.jsonl", mock.ANY, "proj")
+        assert capsys.readouterr().out == ""
+
+    def test_codex_stop_event_gets_empty_json_acknowledgement(self, capsys):
+        mod = _import_session_end()
+        mod._HOOK_EVENT = {"hook_event_name": "Stop"}
+        mod.emit_session_end_output()
+        assert capsys.readouterr().out == "{}\n"
+
+    def test_codex_stop_event_uses_its_explicit_rollout_path(self, capsys):
+        mod = _import_session_end()
+        event = {"hook_event_name": "Stop", "source_path": "/exact/rollout.jsonl"}
+        with mock.patch.object(mod, "get_project_folders", return_value=("proj", "proj")), \
+             mock.patch("lib.session_jobs.enqueue") as enqueue, \
+             mock.patch.object(sys, "stdin", io.StringIO(json.dumps(event))), \
+             mock.patch.dict(os.environ, {"RECALL_SESSION_END_STDOUT": "empty"}, clear=False):
+            mod.enqueue_hook_job()
+        enqueue.assert_called_once_with("codex", "/exact/rollout.jsonl", mock.ANY, "proj")
+        assert capsys.readouterr().out == "{}\n"
+
     def test_can_emit_no_stdout_on_success_for_legacy_mode(self, tmp_path, capsys):
         # SessionEnd hooks have no hookSpecificOutput variant in Claude Code's
         # hook schema (unlike PreToolUse/PostToolUse/Stop/etc) — printing one

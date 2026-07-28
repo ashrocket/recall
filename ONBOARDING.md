@@ -92,6 +92,7 @@ Save in Claude Code, restart in Codex. Save in Codex, restart in Gemini. Same br
 ## Troubleshooting
 
 - **Hooks not firing (Claude Code):** check `/config` → hooks lists recall; restart Claude Code after install.
-- **"No sessions yet":** sessions index at SessionEnd — close and reopen to trigger; confirm `~/.claude/projects/<proj>/recall-index.json` exists.
+- **"No sessions yet":** check `recall jobs status`, then run `recall jobs drain`.
+  The SessionEnd hook queues an exact transcript; it does not parse it inline.
 - **Codex/Gemini: script not found:** `ls ~/.recall/hooks/scripts/` to confirm path; re-clone if missing.
 - **Wipe and start over:** `/recall cleanup --all` prunes noise without nuking restarts; restart prompts live in `recall-restarts/` — delete by hand.

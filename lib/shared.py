@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -304,6 +305,11 @@ def get_session_details_dir(project_folder: str = None) -> Path:
     return get_project_dir(project_folder) / 'recall-sessions'
 
 
+def get_session_jobs_dir(project_folder: str = None) -> Path:
+    """Return the durable per-project SessionEnd job queue directory."""
+    return get_project_dir(project_folder) / 'recall-jobs'
+
+
 def get_restarts_dir(project_folder: str = None) -> Path:
     """Return the directory for restart checkpoint files."""
     return get_project_dir(project_folder) / 'recall-restarts'
@@ -393,8 +399,26 @@ def save_index(index: dict, project_folder: str = None, prune_fn: Callable = Non
         index = prune_fn(index)
 
     index_file = index_dir / 'recall-index.json'
-    with open(index_file, 'w') as f:
-        json.dump(index, f, indent=2, default=str)
+    # A SessionEnd worker can be interrupted at any point.  Never leave an
+    # incomplete JSON document behind: write and sync a sibling then replace.
+    fd, tmp_name = tempfile.mkstemp(prefix='.recall-index.', suffix='.tmp', dir=index_dir)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(index, f, indent=2, default=str)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp_name, 0o600)
+        os.replace(tmp_name, index_file)
+        dir_fd = os.open(index_dir, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
 
 
 # ---------------------------------------------------------------------------

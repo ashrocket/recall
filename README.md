@@ -13,7 +13,7 @@
 
 `Accumulate → Extract → Restart`
 
-[![Version](https://img.shields.io/badge/version-3.4.1-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
+[![Version](https://img.shields.io/badge/version-3.4.2-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 [![License](https://img.shields.io/badge/license-MIT-56b6c2?style=flat-square&labelColor=12151e)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Gemini%20CLI-98c379?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 
@@ -38,9 +38,22 @@ When your AI coding agent hits its context limit, work stops. recall captures wh
 | `/recall knowledge` | Show current CLAUDE.md (global and project) |
 | `/recall stats` | Skill and learning usage statistics |
 | `/recall cleanup` | Analyze and prune the session index |
+| `/recall jobs status` | Inspect durable SessionEnd indexing jobs; `jobs drain` processes them now |
 | `/recall help` | Show command help |
 
-Hooks run on `SessionStart`, `SessionEnd`, and `PostToolUse:Bash`.
+Hooks run on `SessionStart`, `SessionEnd`, and `PostToolUse:Bash`. SessionEnd
+only writes a small durable job with the exact transcript path, so it returns
+within the host's short shutdown budget. Indexing then runs through the local
+queue worker:
+
+```bash
+recall jobs status
+recall jobs drain
+```
+
+On macOS a stable source installation at `~/.recall` can install a user
+LaunchAgent with `recall jobs install-daemon`; plugin-cache installs should use
+the foreground drain command instead.
 
 ---
 
@@ -288,7 +301,8 @@ Claude Code installs register the hooks from `hooks/hooks.json`:
 
 **Overhead:**
 - SessionStart: usually <100ms with compiled fast path (loads context from previous sessions)
-- SessionEnd: ~30s (indexes the session)
+- SessionEnd: under 3s (durably enqueues the exact session); `recall jobs drain`
+  performs indexing, extraction, cleanup, and configured sync later.
 - PostToolUse/Bash: ~10s per command (failure pattern matching)
 
 ---
