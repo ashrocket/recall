@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>From Prompts to Protocols — A narrative history of our agentic coding practice</title>
+  <style>
+    :root {
+      --ink: #20231f;
+      --muted: #62675f;
+      --paper: #fbfaf6;
+      --canvas: #eeece5;
+      --line: #d8d4c8;
+      --night: #152236;
+      --night-2: #203653;
+      --blue: #2d5b91;
+      --blue-soft: #e8f0f8;
+      --amber: #d48b31;
+      --amber-soft: #fff3df;
+      --green: #3d7560;
+      --green-soft: #e6f1ec;
+      --shadow: 0 18px 50px rgba(34, 39, 34, .10);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.72;
+      text-rendering: optimizeLegibility;
+    }
+
+    a { color: var(--blue); text-decoration-thickness: .08em; text-underline-offset: .16em; }
+    a:hover { color: #173f70; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: #f8f6ef;
+      background:
+        radial-gradient(circle at 84% 18%, rgba(212, 139, 49, .25), transparent 28rem),
+        linear-gradient(135deg, var(--night), var(--night-2));
+      padding: clamp(3.2rem, 8vw, 7rem) 1.25rem clamp(3rem, 7vw, 6rem);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -8rem -15rem auto;
+      width: 32rem;
+      height: 32rem;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5rem rgba(255,255,255,.025), 0 0 0 10rem rgba(255,255,255,.018);
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 1040px; margin: 0 auto; }
+    .eyebrow {
+      margin: 0 0 1.25rem;
+      color: #f1c17d;
+      font: 700 .76rem/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 13ch;
+      margin: 0;
+      font-size: clamp(3.1rem, 9vw, 7.4rem);
+      line-height: .92;
+      letter-spacing: -.065em;
+      text-wrap: balance;
+    }
+    .subtitle {
+      max-width: 680px;
+      margin: 1.7rem 0 0;
+      color: #dce6ef;
+      font: 500 clamp(1.15rem, 2.4vw, 1.55rem)/1.45 ui-sans-serif, system-ui, sans-serif;
+    }
+    .meta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 2rem; }
+    .meta span {
+      padding: .5rem .8rem;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      color: #d9e2eb;
+      background: rgba(255,255,255,.06);
+      font: 650 .78rem/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .metric-band {
+      position: relative;
+      z-index: 2;
+      max-width: 1040px;
+      margin: -2.25rem auto 0;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .75rem;
+    }
+    .metric {
+      min-height: 122px;
+      padding: 1.15rem 1.25rem;
+      border: 1px solid rgba(45,91,145,.12);
+      border-radius: 16px;
+      background: rgba(251,250,246,.97);
+      box-shadow: 0 12px 32px rgba(34,39,34,.10);
+    }
+    .metric strong { display: block; color: var(--night); font: 760 2.05rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: -.04em; }
+    .metric span { display: block; margin-top: .55rem; color: var(--muted); font: 650 .78rem/1.35 ui-sans-serif, system-ui, sans-serif; }
+
+    .layout {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 3.5rem 1rem 5rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 235px;
+      gap: clamp(2rem, 6vw, 5.5rem);
+      align-items: start;
+    }
+    article {
+      min-width: 0;
+      padding: clamp(1.4rem, 4vw, 3.4rem);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .toc { position: sticky; top: 1.25rem; }
+    .toc-title { margin: 0 0 .8rem; color: var(--muted); font: 750 .72rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+    .toc a {
+      display: block;
+      padding: .42rem 0;
+      border-bottom: 1px solid rgba(98,103,95,.14);
+      color: #4d554d;
+      font: 600 .77rem/1.35 ui-sans-serif, system-ui, sans-serif;
+      text-decoration: none;
+    }
+    .toc a:hover { color: var(--blue); }
+
+    article > h2 {
+      margin: 4.2rem 0 1.25rem;
+      padding-top: 1.4rem;
+      border-top: 1px solid var(--line);
+      color: var(--night);
+      font: 760 clamp(1.65rem, 4vw, 2.4rem)/1.12 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    article > h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    h3 { margin: 2.3rem 0 1rem; color: var(--night); font: 740 1.35rem/1.25 ui-sans-serif, system-ui, sans-serif; }
+    p { margin: 0 0 1.3rem; }
+    strong { font-weight: 760; }
+    ul, ol { margin: .6rem 0 1.7rem; padding-left: 1.4rem; }
+    li { margin: .45rem 0; padding-left: .25rem; }
+    li::marker { color: var(--amber); font-weight: 800; }
+    code {
+      padding: .12em .36em;
+      border: 1px solid #d8d6ce;
+      border-radius: 5px;
+      color: #273d55;
+      background: #f0efe9;
+      font: 600 .82em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+    }
+    .phase-heading { position: relative; padding-left: 1.15rem; border-left: 5px solid var(--amber); }
+    .evidence-ref {
+      display: inline-flex;
+      align-items: center;
+      margin-left: .15rem;
+      padding: .12rem .35rem;
+      border-radius: 4px;
+      color: #315440;
+      background: var(--green-soft);
+      font: 750 .68rem/1.1 ui-sans-serif, system-ui, sans-serif;
+      text-decoration: none;
+      vertical-align: .1em;
+    }
+    .table-scroll { width: 100%; margin: 1.2rem 0 2rem; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    table { width: 100%; border-collapse: collapse; font: 520 .82rem/1.45 ui-sans-serif, system-ui, sans-serif; }
+    th, td { padding: .8rem .85rem; border-bottom: 1px solid #e4e1d8; text-align: left; vertical-align: top; }
+    th { color: #f8f6ef; background: var(--night-2); font-weight: 760; letter-spacing: .015em; }
+    tbody tr:nth-child(even) { background: #f7f5ef; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 700; color: #344454; }
+
+    #executive-thesis + p {
+      padding: 1.25rem 1.35rem;
+      border-left: 5px solid var(--blue);
+      border-radius: 0 12px 12px 0;
+      background: var(--blue-soft);
+      font-size: 1.08em;
+    }
+    #closing-interpretation ~ p:last-child {
+      margin-top: 1.7rem;
+      padding: 1.35rem;
+      border: 1px solid #ead4af;
+      border-radius: 14px;
+      background: var(--amber-soft);
+      font-size: 1.08em;
+    }
+
+    .footer {
+      max-width: 1040px;
+      margin: 0 auto 3rem;
+      padding: 0 1rem;
+      color: var(--muted);
+      font: 600 .75rem/1.5 ui-sans-serif, system-ui, sans-serif;
+      text-align: center;
+    }
+
+    @media (max-width: 880px) {
+      .metric-band { grid-template-columns: repeat(2, 1fr); }
+      .layout { display: block; padding-top: 2rem; }
+      .toc { position: static; margin: 0 0 1.25rem; padding: 1rem 1.15rem; border: 1px solid var(--line); border-radius: 14px; background: rgba(251,250,246,.9); }
+      .toc a { display: inline-block; margin-right: .8rem; }
+      article { padding: clamp(1.25rem, 5vw, 2.5rem); }
+    }
+    @media (max-width: 520px) {
+      body { font-size: 16.5px; }
+      .hero { padding-top: 3.5rem; }
+      h1 { font-size: clamp(3rem, 18vw, 4.8rem); }
+      .metric-band { grid-template-columns: 1fr 1fr; }
+      .metric { min-height: 106px; padding: .9rem; }
+      .metric strong { font-size: 1.65rem; }
+      article { border-radius: 16px; }
+      th, td { min-width: 130px; padding: .7rem; }
+    }
+    @media print {
+      body { background: white; }
+      .hero { color: var(--ink); background: white; padding: 2rem 0; }
+      .subtitle, .meta span, .eyebrow { color: var(--ink); }
+      .metric-band { margin-top: 0; }
+      .layout { display: block; padding: 1rem 0; }
+      .toc { display: none; }
+      article { border: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Agentic coding retrospective</p>
+      <h1>From Prompts to Protocols</h1>
+      <p class="subtitle">A narrative history of our agentic coding practice</p>
+      <div class="meta">
+        <span>Evidence snapshot · 2026-08-08</span>
+        <span>Archive window · 2026-05-06 through 2026-08-01</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="metric-band" aria-label="Archive coverage summary">
+    <div class="metric"><strong>54</strong><span>project-directory indexes</span></div>
+    <div class="metric"><strong>368</strong><span>indexed sessions, all with details</span></div>
+    <div class="metric"><strong>42%</strong><span>drop in recorded failure density</span></div>
+    <div class="metric"><strong>5</strong><span>distinct phases of practice</span></div>
+  </section>
+
+  <main class="layout">
+    <article>
+      <h2 id="executive-thesis">Executive thesis</h2>
+      <p>Our practice began as high-agency improvisation: give an agent a large outcome, point it at the browser, shell, cloud account, or live product, and keep pushing until something worked. It was unusually ambitious from the start. We were already using worktrees, browser automation, subagents, live deployment, and restart notes in May. But these techniques were mostly ingredients inside individual prompts. The agent was powerful; the operating system around it was thin.</p>
+      <p>Over the next three months, the center of gravity moved out of the prompt and into durable controls:</p>
+      <ul>
+      <li>work moved into isolated branches and worktrees;</li>
+      <li>brainstorming, planning, execution, review, and branch closure became distinct stages;</li>
+      <li>plans, architecture notes, <code>CLAUDE.md</code>/<code>AGENTS.md</code>, Pidgin documents, and Recall checkpoints carried state between sessions;</li>
+      <li>stop hooks and autonomous loops turned persistence into a managed mechanism;</li>
+      <li>tests, PRs, CI, browser checks, and deployment probes became completion gates;</li>
+      <li>subagents changed from general-purpose critics into bounded workers and auditors;</li>
+      <li>“done” evolved from “the agent made a change” to separate claims about implementation, merge, deployment, and live behavior.</li>
+      </ul>
+      <p>The shortest description is: <strong>we moved from heroic prompts to an engineering control plane.</strong></p>
+      <h2 id="what-was-examined">What was examined</h2>
+      <p>This history uses every primary <code>recall-index.json</code> found under <code>~/.claude/projects/</code> at the snapshot date:</p>
+      <div class="table-scroll"><table><thead><tr>
+      <th scope="col">Coverage</th>
+      <th scope="col">Count</th>
+      </tr></thead><tbody>
+      <tr>
+      <td>Project-directory indexes</td>
+      <td>54</td>
+      </tr>
+      <tr>
+      <td>Indexed sessions</td>
+      <td>368</td>
+      </tr>
+      <tr>
+      <td>Indexed sessions with a matching detail sidecar</td>
+      <td>368 (100%)</td>
+      </tr>
+      <tr>
+      <td>Earliest indexed session</td>
+      <td>2026-05-06</td>
+      </tr>
+      <tr>
+      <td>Latest indexed session</td>
+      <td>2026-08-01</td>
+      </tr>
+      <tr>
+      <td>Sessions explicitly carrying a <code>codex-</code> ID</td>
+      <td>4</td>
+      </tr>
+      </tbody></table></div>
+      <p>“Project-directory index” is deliberate wording. Repositories moved between directories, and some conceptual projects therefore have multiple indexes. Backup copies such as <code>recall-index.json.bak.*</code> were excluded to avoid double-counting.</p>
+      <p>The main index supplies the complete session-level counts. Detail sidecars preserve representative messages, commands, failure categories, and skill use, but the writer caps them at 30 user messages, 50 commands, and 20 failures. The quantitative analysis therefore uses index counts; sidecars are used for qualitative evidence. Failure counts are Recall heuristics, so an intentional non-zero diagnostic command can be classified as a failure. The direction of the trend is more meaningful than any single count.</p>
+      <p>The archives also contain command bodies and historically included sensitive material. This narrative intentionally excludes credentials, tokens, personal message content, and raw command text.</p>
+      <h2 id="the-quantitative-shape-of-the-change">The quantitative shape of the change</h2>
+      <div class="table-scroll"><table><thead><tr>
+      <th scope="col">Period</th>
+      <th scope="col">Sessions</th>
+      <th scope="col">Commands</th>
+      <th scope="col">Recorded failures</th>
+      <th scope="col">Failures per 100 commands</th>
+      <th scope="col">Skills recorded</th>
+      <th scope="col">Active indexes</th>
+      </tr></thead><tbody>
+      <tr>
+      <td>May 6–31</td>
+      <td>125</td>
+      <td>5,462</td>
+      <td>706</td>
+      <td>12.9</td>
+      <td>116</td>
+      <td>23</td>
+      </tr>
+      <tr>
+      <td>June</td>
+      <td>66</td>
+      <td>3,043</td>
+      <td>264</td>
+      <td>8.7</td>
+      <td>140</td>
+      <td>14</td>
+      </tr>
+      <tr>
+      <td>July 1–August 1</td>
+      <td>177</td>
+      <td>8,207</td>
+      <td>610</td>
+      <td>7.4</td>
+      <td>194</td>
+      <td>29</td>
+      </tr>
+      </tbody></table></div>
+      <p>Commands per session stayed roughly flat—43.7 in May, 46.1 in June, and 46.4 in the final period—while recorded failure density fell about 42%. We did not improve by asking agents to do less. We kept the same operational intensity while adding enough structure to reduce wasted motion.</p>
+      <p>The skill record shows what that structure was made of. Recall-related invocations dominate, followed by <code>superpowers:brainstorming</code>, Pidgin, writing plans, artifact design, subagent-driven development, finishing branches, and worktrees. The names are noisy because Recall itself was renamed from <code>agent-recall:recall</code> to <code>recall</code> and then <code>recall:recall</code>; that naming churn is itself evidence of consolidation from a collection of commands into one remembered workflow.</p>
+      <h2 id="prologue-memory-began-as-error-correction">Prologue: memory began as error correction</h2>
+      <p>The design record predates the live archive. The January 2025 concept was not “remember the whole project.” It was a shell-failure skill: observe a failed command, recognize a later fix, and ask whether the pair should become a global or project SOP. The original unit of memory was a mistake and its repair.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence D01">D01</a></p>
+      <p>By January 2026, the diagnosis had widened. The Recall v2 design explicitly said that session indexes existed but “wisdom dies with each session”: learnings were empty, knowledge was not surfaced at session start, cross-project search was missing, and agents repeated solved debugging work. The proposed answer combined session search, project knowledge, pending learnings, and failure SOPs.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence D02">D02</a></p>
+      <p>That progression foreshadows the later practice:</p>
+      <ol>
+      <li>First remember commands.</li>
+      <li>Then remember fixes.</li>
+      <li>Then remember project facts and handoffs.</li>
+      <li>Finally, encode how the agent should work and what evidence completion requires.</li>
+      </ol>
+      <h2 id="phase-i-may-6-14-maximum-agency-minimum-ceremony" class="phase-heading">Phase I — May 6–14: maximum agency, minimum ceremony</h2>
+      <p>The first archived sessions are expansive, direct, and operational. A May 6 Career session asked the agent to turn a job-search tool into a conversational onboarding product for a beta user. In one session it worked across a worktree, application code, email delivery, cloud data, deployment, and live health checks, then ended by asking for a recap/restart prompt. The index records 23 user messages, 79 commands, and 12 failures.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A01">A01</a></p>
+      <p>That pattern repeats across very different projects:</p>
+      <ul>
+      <li>On May 7, a Retailaer session used a subagent to call Codex and “ruthlessly test” the live site: 65 commands and 15 failures.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A02">A02</a></li>
+      <li>On May 8, a Career session drove a long Greenhouse/browser application workflow: 249 commands and 48 recorded failures.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A03">A03</a></li>
+      <li>Game, iOS, blog, analytics, mail, RFP, and cloud sessions moved rapidly between code, browser, deployment, and product decisions.</li>
+      </ul>
+      <p>The characteristic unit of work was a <strong>mission</strong>. Prompts often combined discovery, implementation, deployment, and evaluation. Agents were expected to infer the intermediate plan and keep going. Browser state was treated as part of the workspace. Live systems were not a final destination after local verification; they were often where the work happened.</p>
+      <p>Subagents were already present, but their role was usually broad: ask Codex or Gemini to critique the work, have two agents act as players, or assemble a panel of reviewers. This was “more intelligence on the task,” not yet a stable decomposition protocol.</p>
+      <p>There were early signs of the future. Worktrees appear in the very first session. Recall and restart prompts were used within days. Brainstorming and writing-plan skills were available. But those controls were optional tactics, invoked inside a high-energy session rather than forming the default lifecycle around every change.</p>
+      <p>The cost is visible in the 12.9 failures per 100 commands. Some of that count is heuristic noise, but the detailed records show real path errors, command-shape errors, Git problems, missing tools, browser uncertainty, and live-service friction. Secret handling was also too casual: commands sometimes read or piped local credential material directly, and the archive retained command bodies. Later security fixes and metadata-only queue design are a direct answer to this era’s assumptions.</p>
+      <h2 id="phase-ii-may-15-june-8-autonomy-acquires-structure" class="phase-heading">Phase II — May 15–June 8: autonomy acquires structure</h2>
+      <p>Around mid-May, the practice begins to separate concerns.</p>
+      <p>A May 15 Career session explicitly required a unique worktree and combined worktree setup, brainstorming, and Pidgin delivery.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A04">A04</a> Five days later, the Eagle Zero project asked for a collaboration and handoff system for developers in Estonia and Hungary; the session used brainstorming, writing-plans, and subagent-driven-development skills.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A05">A05</a> The question was no longer only “can the agent build this?” It was becoming “how can people and agents exchange work without collisions or lost context?”</p>
+      <p>By June 3, Retailaer asked for a complete Playwright regression suite in a separate worktree using Claude agents. The session added systematic debugging to brainstorming and exercised CI, branch behavior, and regression gates.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A06">A06</a> Similar sessions increasingly mention:</p>
+      <ul>
+      <li>separate worktrees and branch closure;</li>
+      <li>regression suites and content validation;</li>
+      <li>PR creation, approval, merge, and branch reconciliation;</li>
+      <li>architecture summaries and review artifacts;</li>
+      <li>Pidgin as a durable handoff surface rather than a transient notification;</li>
+      <li>explicit plans before implementation.</li>
+      </ul>
+      <p>The skills start forming a pipeline: brainstorm, write a plan, execute it, request or synthesize review, finish the branch. June records 140 skill invocations across only 66 sessions, compared with 116 across 125 sessions in May. Some are duplicate Recall tags, but the qualitative shift is unmistakable: named procedures are replacing one-off instructions.</p>
+      <p>Subagents change too. Instead of merely offering extra opinions, they begin to receive bounded roles: build a test suite, research one option, review a particular surface, or execute a section of a plan. Coordination files and artifacts make their output inspectable by the next worker.</p>
+      <p>This phase does not reduce ambition. It makes ambition composable.</p>
+      <h2 id="phase-iii-june-9-july-8-sessions-become-resumable-operations" class="phase-heading">Phase III — June 9–July 8: sessions become resumable operations</h2>
+      <p>June introduces persistence as an explicit operating mode. A June 9 Looki session combined Recall, code review, test-driven development, Cloudflare tooling, a PR, and an “autonomous loop” timer; it recorded only one failure across 63 indexed commands.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A07">A07</a> Autonomous loop checks also appear in Pidgin and Retailaer work. Stop hooks carry a session-scoped condition and continue nudging the agent until the condition is satisfied.</p>
+      <p>The crucial change is that state increasingly lives outside conversational memory:</p>
+      <ul>
+      <li>plans are saved under <code>docs/</code> and passed to execution skills;</li>
+      <li><code>coord.md</code>, architecture documents, and Pidgin HTML describe the current state to humans and other agents;</li>
+      <li>repository guidance becomes shared context across related projects;</li>
+      <li>Recall gets named restart prompts rather than anonymous timestamps;</li>
+      <li>checkpoints identify the working directory, goal, current state, and next action.</li>
+      </ul>
+      <p>On June 25, Recall itself was asked to use a named Claude or Codex session as the restart name.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A08">A08</a> On June 29, a CarerCare checkpoint explicitly recorded that it had been generated by local parsing and extractive TF-IDF rather than LLM distillation.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A09">A09</a> On July 4, a BandMusicGames checkpoint opened with a working directory and a <code>Goal</code> section.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A10">A10</a> On July 6, a MusicLoops session invoked subagent-driven development against a specific plan file and used Recall to carry it forward.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A11">A11</a></p>
+      <p>This is more important than a better summary format. A checkpoint changes the unit of continuity from “the previous chat” to a durable work package. A new agent can inspect the repository and checkpoint, resume the plan, and be judged against the same goal. The work can survive context limits, process restarts, and tool changes.</p>
+      <p>Recall’s product evolution mirrors the practice it observed. The repository added named restart support on June 30, deletion and quality improvements on July 2, and later A/B evaluation of locally extracted versus LLM-distilled restart prompts. Memory became a tested product surface rather than a transcript dump.</p>
+      <h2 id="phase-iv-july-9-22-persistence-meets-gates" class="phase-heading">Phase IV — July 9–22: persistence meets gates</h2>
+      <p>In early July, long-running work becomes more explicitly orchestrated. Archives contain <code>TaskCreate</code>, teammate messages, cheap loops, session-scoped stop conditions, and plan-file restarts. Agents can work while the user steps away, but they are increasingly bound to artifacts and checks.</p>
+      <p>The clearest turning point is July 17 in Retailaer OMS. A stop hook reported that <code>pnpm verify --affected</code> was red and stated, “You are not done.”<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A12">A12</a> This is a different philosophy from the May sessions. Completion is no longer whatever the agent says after making progress. The environment can reject the claim.</p>
+      <p>The same period shows more deliberate lifecycle work:</p>
+      <ul>
+      <li>lint and test failures are handled before merge;</li>
+      <li>Terraform and architecture changes are reviewed for ignore coverage and sensitive material;</li>
+      <li>PRs and branch merges are explicit operations;</li>
+      <li>Pidgin artifacts carry architecture maps and review results;</li>
+      <li>read-only and adversarial review sessions appear alongside implementation sessions;</li>
+      <li>agents distinguish a missing dependency, an expired credential, a live propagation delay, and an actual code defect instead of treating every obstacle as an invitation to edit code.</li>
+      </ul>
+      <p>This is where “autonomous” starts to mean <strong>independent within constraints</strong>, rather than merely “keep taking actions.”</p>
+      <h2 id="phase-v-july-23-august-1-evidence-first-closure-and-the-codex-pivot" class="phase-heading">Phase V — July 23–August 1: evidence-first closure and the Codex pivot</h2>
+      <p>The final archived week has the recognizable shape of the current practice. A UserHappy session resumed from an LLM-distilled, post-merge palette checkpoint.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A13">A13</a> It was followed by narrowly scoped read-only QA audits against named branches and files. A Retailaer OMS session framed Terraform work in terms of verifying ignore coverage, scrubbing plan files, and picking up CI failures before commit.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A14">A14</a> UserHappy design work compared implementation and Figma state. Eagle Zero’s August 1 session launched the OIDC site for direct exploration rather than treating deployment output alone as proof.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence A15">A15</a></p>
+      <p>The quantitative record supports the qualitative shift. The final period contains more commands than May, across more active indexes, while failure density is 7.4 per 100 commands instead of 12.9. The agents are not less active. They are operating inside better-defined rails.</p>
+      <p>At the same time, the platform is changing. Only four sessions in the primary Recall indexes have a <code>codex-</code> session ID. Two are in May and two on July 6. The archive therefore records the beginning of the move to Codex, not its completion. The Recall repository makes the direction explicit a few weeks later: commits on July 26–27 made commands Codex-native, and the July 28 durable-indexing design addressed Codex’s short SessionEnd budget.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence C01">C01</a><a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence D03">D03</a></p>
+      <p>That design is a compact statement of the mature engineering instinct: do not use a detached process and hope; enqueue a durable job naming the exact transcript, make writes idempotent and concurrency-safe, keep credentials out of queue files, and preserve an explicit recovery path. The memory subsystem itself has adopted the same principles as the coding practice—exact identity, bounded work, durable state, safe retries, and observable failure.</p>
+      <h2 id="the-current-codex-first-loop">The current Codex-first loop</h2>
+      <p>The current effective Codex guidance completes the arc. The preferred workflow is now:</p>
+      <ol>
+      <li>Define <code>Goal</code>, <code>Context</code>, <code>Constraints</code>, <code>Done when</code>, and <code>Verification required</code> when needed.</li>
+      <li>Plan the change.</li>
+      <li>Inspect the repository and relevant docs.</li>
+      <li>Make scoped edits.</li>
+      <li>Run focused checks and broader checks when risk is high.</li>
+      <li>Review the diff.</li>
+      <li>Verify behavior, including Browser QA for UI work.</li>
+      <li>Report behavior, files, and verification.</li>
+      </ol>
+      <p>This loop is not bureaucracy added to agentic work. It is the mechanism that makes high agency trustworthy.</p>
+      <p>The post-archive Codex record shows how far this has gone. In an August 4 UserHappy release, the shared dirty checkout was preserved through an isolated worktree; acceptance items were mapped to code and tests; a focused fix passed unit and worker suites, build, migrations, deployment, and live probes; the exact merged and deployed SHA was tracked; and a fresh browser verified first paint. The final report separately identified implementation, merge, deployment, live verification, untouched environments, and the remaining unaudited authenticated flow.<a class="evidence-ref" href="#evidence-ledger" aria-label="See evidence E01">E01</a></p>
+      <p>That is the strongest contrast with May. In May, the agent was asked to make the world change. By August, it was also required to prove exactly which world changed, from which commit, through which gate, without disturbing adjacent work.</p>
+      <h2 id="what-changed-in-one-view">What changed, in one view</h2>
+      <div class="table-scroll"><table><thead><tr>
+      <th scope="col">Early tendency</th>
+      <th scope="col">Mature tendency</th>
+      </tr></thead><tbody>
+      <tr>
+      <td>One large mission prompt</td>
+      <td>Goal plus explicit context, constraints, done condition, and evidence</td>
+      </tr>
+      <tr>
+      <td>Plan inferred inside the session</td>
+      <td>Plan stored as an inspectable artifact</td>
+      </tr>
+      <tr>
+      <td>Work in whichever checkout is open</td>
+      <td>Preserve dirty work; isolate scoped changes in branches/worktrees</td>
+      </tr>
+      <tr>
+      <td>Subagents as general critics</td>
+      <td>Bounded agents with named tasks and reviewable outputs</td>
+      </tr>
+      <tr>
+      <td>Browser and production as the workspace</td>
+      <td>Local/focused verification first; live environment as a separate gate</td>
+      </tr>
+      <tr>
+      <td>Continue until the agent feels done</td>
+      <td>Stop hooks, tests, CI, and browser checks can reject completion</td>
+      </tr>
+      <tr>
+      <td>Restart notes as emergency recap</td>
+      <td>Named, structured, tested checkpoints used proactively</td>
+      </tr>
+      <tr>
+      <td>Chat contains the state</td>
+      <td>Repo docs, guidance, artifacts, indexes, and rollout summaries contain the state</td>
+      </tr>
+      <tr>
+      <td>Deployment implies success</td>
+      <td>Implemented, merged, deployed, and live-verified are separate states</td>
+      </tr>
+      <tr>
+      <td>Credentials treated as convenient inputs</td>
+      <td>Presence checks, redaction, scrubbed artifacts, and metadata-only durable queues</td>
+      </tr>
+      <tr>
+      <td>Load a broad source and search through it</td>
+      <td>Project the smallest useful keys, join lightweight indexes, and touch payloads only when required</td>
+      </tr>
+      <tr>
+      <td>Agent as clever executor</td>
+      <td>Codex as the engineering control plane</td>
+      </tr>
+      </tbody></table></div>
+      <h2 id="what-remained-constant">What remained constant</h2>
+      <p>The story is not a reversal. Several instincts were present from the beginning and remain strengths:</p>
+      <ul>
+      <li><strong>Outcome orientation.</strong> The work was always tied to real products, users, and operational results.</li>
+      <li><strong>Tool fluency.</strong> Shell, browser, cloud consoles, Git, deployment systems, mobile builds, and external services were treated as one workspace.</li>
+      <li><strong>Willingness to delegate.</strong> Multi-agent critique and parallel exploration appeared immediately.</li>
+      <li><strong>Dogfooding.</strong> Recall, Pidgin, Squawk, loop mechanisms, and workflow skills were improved through actual use.</li>
+      <li><strong>Persistence.</strong> Context limits were treated as an engineering problem to solve, not a reason to stop.</li>
+      </ul>
+      <p>The change was learning where these strengths needed boundaries. We did not replace agency with caution. We made agency inspectable, resumable, and accountable.</p>
+      <h2 id="lessons-worth-preserving">Lessons worth preserving</h2>
+      <ol>
+      <li><strong>Keep state outside chat.</strong> A good checkpoint, plan, repo guide, or rollout summary is part of the implementation, not administrative residue.</li>
+      <li><strong>Use the smallest stable control that works.</strong> A worktree prevents collisions; a focused test proves a behavior; a stop gate rejects a false finish; a browser check proves the visible result.</li>
+      <li><strong>Separate lifecycle claims.</strong> Code can be implemented but unmerged, merged but undeployed, deployed but not live-verified.</li>
+      <li><strong>Let agents be ambitious inside a narrow ownership boundary.</strong> High autonomy works best when scope, target environment, destructive actions, and completion evidence are explicit.</li>
+      <li><strong>Treat recurring prompts as product defects.</strong> If the same procedure is repeatedly explained, move it into <code>AGENTS.md</code>, a skill, a hook, or a script.</li>
+      <li><strong>Inspect the exact current state.</strong> Current SHA, live logs, browser behavior, dirty worktree, and actual configured tools outrank remembered assumptions.</li>
+      <li><strong>Design handoffs for a different agent.</strong> If a fresh agent cannot tell what is true, what changed, what remains, and how to verify it, the handoff is incomplete.</li>
+      <li><strong>Never open a large data source by default.</strong> Predict the memory, compute, I/O, and latency envelope before acting. Select only the identifiers and metadata needed for the decision; join lightweight indexes before loading payloads; stream or chunk unavoidable work with explicit bounds; and stop before an operation can crash, swap, or monopolize the machine. The cheapest safe read is often the read you avoid entirely.</li>
+      </ol>
+      <h2 id="evidence-ledger">Evidence ledger</h2>
+      <p>The paths below are local, sensitive session archives. They identify the supporting record without reproducing its raw command or message content. Each session can be resolved as <code>~/.claude/projects/&lt;project-slug&gt;/recall-sessions/&lt;session-id&gt;.json</code>.</p>
+      <div class="table-scroll"><table><thead><tr>
+      <th scope="col">ID</th>
+      <th scope="col">Date</th>
+      <th scope="col">Project</th>
+      <th scope="col">Evidence used</th>
+      </tr></thead><tbody>
+      <tr>
+      <td>A01</td>
+      <td>2026-05-06</td>
+      <td>Career</td>
+      <td>First indexed product-onboarding mission; live services, worktree, restart recap; session <code>0fe0d72f-d7c9-40ec-9dba-a8448a8be375</code></td>
+      </tr>
+      <tr>
+      <td>A02</td>
+      <td>2026-05-07</td>
+      <td>Retailaer</td>
+      <td>Codex subagent used for aggressive live-site testing; session <code>00d38f0f-6b30-425a-8a2a-e71001e2c9d5</code></td>
+      </tr>
+      <tr>
+      <td>A03</td>
+      <td>2026-05-08</td>
+      <td>Career</td>
+      <td>Long browser-driven application run; session <code>8d1db98d-513a-444f-8948-38bca24d1b55</code></td>
+      </tr>
+      <tr>
+      <td>A04</td>
+      <td>2026-05-15</td>
+      <td>Career</td>
+      <td>Explicit unique worktree plus brainstorming and handoff; session <code>36218cba-1599-4a5b-8c89-bb95637de597</code></td>
+      </tr>
+      <tr>
+      <td>A05</td>
+      <td>2026-05-20</td>
+      <td>Eagle Zero</td>
+      <td>Human/agent collaboration and handoff design; session <code>0ee6e808-569c-4753-a246-e8b15f91ae24</code></td>
+      </tr>
+      <tr>
+      <td>A06</td>
+      <td>2026-06-03</td>
+      <td>Retailaer</td>
+      <td>Separate-worktree Playwright regression and agent review; session <code>ca2ab057-1f3c-497f-984e-d8bd245861d2</code></td>
+      </tr>
+      <tr>
+      <td>A07</td>
+      <td>2026-06-09</td>
+      <td>Looki</td>
+      <td>Autonomous loop, TDD, review, Cloudflare, and PR; session <code>a652a3c5-f798-419f-b204-3dd9556ec6fc</code></td>
+      </tr>
+      <tr>
+      <td>A08</td>
+      <td>2026-06-25</td>
+      <td>Recall</td>
+      <td>Named restart design; session <code>8d397e3e-f234-44ca-9260-9bb5357050c6</code></td>
+      </tr>
+      <tr>
+      <td>A09</td>
+      <td>2026-06-29</td>
+      <td>CarerCare</td>
+      <td>Locally extracted structured session checkpoint; session <code>0846584c-9d07-4f4c-9162-2a9a566fb547</code></td>
+      </tr>
+      <tr>
+      <td>A10</td>
+      <td>2026-07-04</td>
+      <td>BandMusicGames</td>
+      <td>Checkpoint with working directory and explicit goal; session <code>0ca115d8-f8e9-471a-833e-b7afc08dac38</code></td>
+      </tr>
+      <tr>
+      <td>A11</td>
+      <td>2026-07-06</td>
+      <td>MusicLoops</td>
+      <td>Plan-file-driven subagent development and Recall resume; session <code>f40ff19e-febb-4841-88f1-d31806f871cc</code></td>
+      </tr>
+      <tr>
+      <td>A12</td>
+      <td>2026-07-17</td>
+      <td>Retailaer OMS</td>
+      <td>Stop gate rejected completion while verification was red; session <code>324649f9-f418-4b7a-b0fa-5898a2b6632c</code></td>
+      </tr>
+      <tr>
+      <td>A13</td>
+      <td>2026-07-23</td>
+      <td>UserHappy</td>
+      <td>LLM-distilled post-merge restart followed by scoped audits; session <code>b8bf1644-e5ae-4642-9aba-26c4b37582ee</code></td>
+      </tr>
+      <tr>
+      <td>A14</td>
+      <td>2026-07-26</td>
+      <td>Retailaer OMS</td>
+      <td>CI, ignore coverage, scrubbing, and commit readiness; session <code>2999b9c6-6f86-4603-a03e-7a4372cd2569</code></td>
+      </tr>
+      <tr>
+      <td>A15</td>
+      <td>2026-08-01</td>
+      <td>Eagle Zero</td>
+      <td>OIDC site launch and direct exploration; session <code>9c4c9798-7df9-4399-859f-7ef5e437a58a</code></td>
+      </tr>
+      </tbody></table></div>
+      <p>Repository and post-archive evidence:</p>
+      <ul>
+      <li><strong>D01:</strong> <code>docs/plans/2025-01-25-shell-failures-design.md</code></li>
+      <li><strong>D02:</strong> <code>docs/plans/2026-01-27-recall-v2-design.md</code></li>
+      <li><strong>D03:</strong> <code>docs/superpowers/specs/2026-07-28-durable-session-index-queue-design.md</code></li>
+      <li><strong>C01:</strong> Recall commits <code>2373d8a</code>, <code>7be0c98</code>, <code>1e1afb7</code>, and <code>537b39b</code>, 2026-07-26 through 2026-07-28</li>
+      <li><strong>E01:</strong> Codex rollout <code>019fcde2-2ef6-7660-8d2b-edb8f54d77ef</code>, UserHappy Cortex feedback release and exact-SHA Dev verification</li>
+      </ul>
+      <h2 id="closing-interpretation">Closing interpretation</h2>
+      <p>The deepest change was not Claude to Codex, or one skill to another. It was a change in what we considered the product of an agent session.</p>
+      <p>At first, the product was the action: code written, form submitted, deployment attempted, site changed. Then the product became the change plus a recap. Then it became a durable work package with a plan and restart point. Finally, it became a verified state transition: scoped code, preserved surrounding work, an exact commit, passed gates, observed behavior, and a handoff another agent can trust.</p>
+      <p>That is the narrative of our agentic practice: <strong>from getting an agent to do the work, to building a system in which agents can do consequential work safely and prove what they did.</strong></p>
+    </article>
+    <aside class="toc" aria-label="Table of contents">
+      <p class="toc-title">In this history</p>
+      <a href="#executive-thesis">Executive thesis</a>
+<a href="#what-was-examined">What was examined</a>
+<a href="#the-quantitative-shape-of-the-change">The quantitative shape of the change</a>
+<a href="#prologue-memory-began-as-error-correction">Prologue: memory began as error correction</a>
+<a href="#phase-i-may-6-14-maximum-agency-minimum-ceremony">Phase I · May 6–14: maximum agency, minimum ceremony</a>
+<a href="#phase-ii-may-15-june-8-autonomy-acquires-structure">Phase II · May 15–June 8: autonomy acquires structure</a>
+<a href="#phase-iii-june-9-july-8-sessions-become-resumable-operations">Phase III · June 9–July 8: sessions become resumable operations</a>
+<a href="#phase-iv-july-9-22-persistence-meets-gates">Phase IV · July 9–22: persistence meets gates</a>
+<a href="#phase-v-july-23-august-1-evidence-first-closure-and-the-codex-pivot">Phase V · July 23–August 1: evidence-first closure and the Codex pivot</a>
+<a href="#the-current-codex-first-loop">The current Codex-first loop</a>
+<a href="#what-changed-in-one-view">What changed, in one view</a>
+<a href="#what-remained-constant">What remained constant</a>
+<a href="#lessons-worth-preserving">Lessons worth preserving</a>
+<a href="#evidence-ledger">Evidence ledger</a>
+<a href="#closing-interpretation">Closing interpretation</a>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    Built from the local Recall archive census. Sensitive command bodies, credentials, and personal message content are intentionally excluded.
+  </footer>
+</body>
+</html>
