@@ -230,7 +230,6 @@
       box-shadow: 0 0 0 3px rgba(224, 116, 84, 0.18);
     }
     .jump-pill.codex .dot { background: var(--lav-deep); box-shadow: 0 0 0 3px rgba(139, 110, 212, 0.18); }
-    .jump-pill.gemini .dot { background: var(--mint-deep); box-shadow: 0 0 0 3px rgba(58, 158, 120, 0.18); }
 
     /* sticky notes (matches other pages) */
     .hero-right { position: relative; padding-top: 8px; }
@@ -610,7 +609,7 @@
             <div class="hero-jumps">
               <a class="jump-pill" href="#speedrun"><span class="dot"></span>Speedrun · 3 min</a>
               <a class="jump-pill codex" href="#tour"><span class="dot"></span>Subcommand tour · 4 min</a>
-              <a class="jump-pill gemini" href="#different-agent"><span class="dot"></span>Codex / Gemini</a>
+              <a class="jump-pill codex" href="#different-agent"><span class="dot"></span>Codex</a>
             </div>
             <div class="hero-note">install → verify → save → restart → tour</div>
           </div>
@@ -635,7 +634,7 @@
           <div>
             <div class="section-kicker">Speedrun · 3 minutes · Claude Code</div>
             <h2 class="section-title">Install → save → restart</h2>
-            <p class="section-intro" style="margin-top: 8px;">Four steps. The aha is step 4 — a fresh Claude Code session that already knows what you were doing. <a href="#different-agent" style="text-decoration: underline; color: var(--accent);">Using Codex or Gemini?</a></p>
+            <p class="section-intro" style="margin-top: 8px;">Four steps. The aha is step 4 — a fresh Claude Code session that already knows what you were doing. <a href="#different-agent" style="text-decoration: underline; color: var(--accent);">Using Codex?</a></p>
           </div>
           <div class="annotation">recommended</div>
         </div>
@@ -966,9 +965,9 @@ Run <span class="cmd">/recall cleanup --all</span> when you're ready to execute.
       <section class="section section-shell" id="different-agent">
         <div class="section-head">
           <div>
-            <div class="section-kicker">Codex CLI · Gemini CLI</div>
+            <div class="section-kicker">Codex CLI</div>
             <h2 class="section-title">Using a different agent?</h2>
-            <p class="section-intro" style="margin-top: 8px;">No marketplace yet on those — clone the repo and add one snippet to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">AGENTS.md</code> or <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">GEMINI.md</code>. Once installed, steps 2-4 of the speedrun and the tour above all apply unchanged — same <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">/recall</code> commands, same index.</p>
+            <p class="section-intro" style="margin-top: 8px;">No marketplace there yet — clone the repo and add one snippet to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">AGENTS.md</code>. Once installed, steps 2-4 of the speedrun and the tour above all apply unchanged — same <code style="font-family: 'JetBrains Mono', monospace; font-size: 14px; background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">/recall</code> commands, same index.</p>
           </div>
         </div>
 
@@ -1005,32 +1004,6 @@ At session end:
             <p style="margin-top: 14px; font-size: 13.5px;">Then open Codex in your project. Update later with <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">cd ~/.recall && git pull</code>.</p>
           </div>
 
-          <!-- gemini install -->
-          <div class="step-card" data-tab="gemini" style="--tab-bg: var(--mint); --tab-ink: var(--mint-deep);" id="gemini">
-            <div class="step-header">
-              <div class="step-number">B</div>
-              <h3>Gemini CLI</h3>
-            </div>
-            <p><strong>1.</strong> Clone the repo (same as Codex):</p>
-            <div class="terminal-block">
-              <div class="terminal-label">terminal</div>
-<pre><span class="cmd">git clone https://github.com/ashrocket/recall ~/.recall</span></pre>
-            </div>
-            <p style="margin-top: 14px;"><strong>2.</strong> Append to your project's <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">GEMINI.md</code>:</p>
-            <div class="terminal-block">
-              <div class="terminal-label">GEMINI.md  (project root)</div>
-<pre><span class="accent-text">## Session memory (recall)</span>
-
-At the start of each session, run and include the
-output as context:
-<span class="dim">```bash</span>
-<span class="cmd">~/.recall/hooks/scripts/session-start \
-  "$PWD" 2&gt;/dev/null</span>
-<span class="dim">```</span></pre>
-            </div>
-            <p style="margin-top: 14px; font-size: 13.5px;">Gemini reads <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px;">GEMINI.md</code> automatically. Same shared index as Claude Code and Codex.</p>
-          </div>
-
         </div>
       </section>
 
@@ -1055,7 +1028,7 @@ output as context:
         <div class="sticky-row">
           <div class="sticky-note sticky-pink">
             <h3>Save in Claude Code →</h3>
-            <p>restart in Codex. Or Gemini. Or back to Claude Code on another machine.</p>
+            <p>restart in Codex. Or back to Claude Code on another machine.</p>
             <div class="scribble">history is portable</div>
           </div>
           <div class="sticky-note sticky-blue">

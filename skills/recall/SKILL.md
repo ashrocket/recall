@@ -22,7 +22,7 @@ as the text after `$recall`; never tell a Codex user to type a slash command.
 - `save*`: read `skills/recall/procedures/save.md`; pass everything after `save` as `$ARGUMENTS` (an optional restart name).
 - `restart*`: read `skills/recall/procedures/restart.md`; pass everything after `restart` as `$ARGUMENTS`.
 - `learn*`: read `skills/recall/procedures/learn.md`; pass everything after `learn` as `$ARGUMENTS`.
-- everything else (`help`, empty, `list`, `last`, `failures`, `stats`, `cleanup`, `knowledge`, or an arbitrary search term / slash-delimited regex):
+- everything else (`help`, empty, `list`, `last`, `failures`, `memory`, `stats`, `cleanup`, `knowledge`, or an arbitrary search term / slash-delimited regex):
 
 ```bash
 RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}

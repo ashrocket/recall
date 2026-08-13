@@ -22,12 +22,6 @@ Copy `AGENTS.md` from this repo into your project root (or append its contents).
 plugin installs use `.codex-plugin/plugin.json` and expose the bundled
 `skills/recall/SKILL.md` dispatcher skill.
 
-**Gemini CLI:**
-```bash
-git clone https://github.com/ashrocket/recall ~/.recall
-```
-Copy `GEMINI.md` from this repo into your project root.
-
 ---
 
 ## The 3-minute speedrun
@@ -85,7 +79,7 @@ All three platforms write to the same index:
 └─ *.jsonl              # raw session files
 ```
 
-Save in Claude Code, restart in Codex. Save in Codex, restart in Gemini. Same briefing, different agent.
+Save in Claude Code, restart in Codex. Save in Codex, restart in Claude Code. Same briefing, different agent.
 
 ---
 
@@ -94,5 +88,5 @@ Save in Claude Code, restart in Codex. Save in Codex, restart in Gemini. Same br
 - **Hooks not firing (Claude Code):** check `/config` → hooks lists recall; restart Claude Code after install.
 - **"No sessions yet":** check `recall jobs status`, then run `recall jobs drain`.
   The SessionEnd hook queues an exact transcript; it does not parse it inline.
-- **Codex/Gemini: script not found:** `ls ~/.recall/hooks/scripts/` to confirm path; re-clone if missing.
+- **Codex: script not found:** `ls ~/.recall/hooks/scripts/` to confirm path; re-clone if missing.
 - **Wipe and start over:** `/recall cleanup --all` prunes noise without nuking restarts; restart prompts live in `recall-restarts/` — delete by hand.

@@ -84,6 +84,10 @@ case "$SUBCOMMAND" in
     shift || true
     exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" learn "$@"
     ;;
+  memory)
+    shift || true
+    exec python3 "$ROOT/bin/recall-memory.py" "$CWD_ARG" "$@"
+    ;;
 esac
 
 FAST_BIN="$ROOT/target/release/recall-sessions-rs"

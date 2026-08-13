@@ -126,7 +126,7 @@ class TestAddPendingLearning:
         proj_dir = tmp_path / "proj"
         _write_index(proj_dir, _make_index())
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
-            result = add_pending_learning({"title": "SSH keys", "category": "git"}, "proj")
+            result = add_pending_learning({"title": "SSH keys", "category": "git", "fix": "Use an SSH remote, not HTTPS"}, "proj")
         assert result is True
         index = json.loads((proj_dir / "recall-index.json").read_text())
         assert len(index["pending_learnings"]) == 1
@@ -138,7 +138,7 @@ class TestAddPendingLearning:
         existing = _make_index(pending=[{"title": "SSH keys", "category": "git"}])
         _write_index(proj_dir, existing)
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
-            result = add_pending_learning({"title": "SSH keys", "category": "git"}, "proj")
+            result = add_pending_learning({"title": "SSH keys", "category": "git", "fix": "Use an SSH remote, not HTTPS"}, "proj")
         assert result is False
         index = json.loads((proj_dir / "recall-index.json").read_text())
         assert len(index["pending_learnings"]) == 1
@@ -149,7 +149,7 @@ class TestAddPendingLearning:
         existing = _make_index(learnings=[{"title": "SSH keys", "category": "git"}])
         _write_index(proj_dir, existing)
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
-            result = add_pending_learning({"title": "SSH keys", "category": "git"}, "proj")
+            result = add_pending_learning({"title": "SSH keys", "category": "git", "fix": "Use an SSH remote, not HTTPS"}, "proj")
         assert result is False
 
     def test_creates_pending_learnings_key_when_missing_from_index(self, tmp_path):
@@ -163,7 +163,7 @@ class TestAddPendingLearning:
         }
         _write_index(proj_dir, legacy_index)
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
-            result = add_pending_learning({"title": "New tip", "category": "git"}, "proj")
+            result = add_pending_learning({"title": "New tip", "category": "git", "fix": "Use an SSH remote, not HTTPS"}, "proj")
         assert result is True
         saved = json.loads((proj_dir / "recall-index.json").read_text())
         assert "pending_learnings" in saved
@@ -551,11 +551,11 @@ class TestRejectionTombstones:
         failure (different description) must still be proposable."""
         from lib.knowledge import add_pending_learning, reject_learning
         proj_dir = tmp_path / "proj"
-        old = {"title": "Fix for cat failure", "description": "Command `cat X` failed with: ..."}
+        old = {"title": "Fix for cat failure", "description": "Command `cat X` failed with: ...", "fix": "Read it with sudo instead"}
         _write_index(proj_dir, _make_index(pending=[old]))
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
             reject_learning(0, "proj")
-            new = {"title": "Fix for cat failure", "description": "Command `cat Y` failed with: different error"}
+            new = {"title": "Fix for cat failure", "description": "Command `cat Y` failed with: different error", "fix": "Read it with sudo instead"}
             result = add_pending_learning(new, "proj")
         assert result is True
 
@@ -611,3 +611,57 @@ class TestRejectionTombstones:
         with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
             result = add_pending_learning(dict(learning), "proj")
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Upstream durability gate on proposals
+# ---------------------------------------------------------------------------
+
+class TestProposalDurabilityGate:
+    """A proposal that cannot state a rule must never reach the review queue —
+    asking the user to review it spends attention, and approving it plants an
+    entry that lives in the index forever."""
+
+    def _add(self, tmp_path, learning):
+        from lib.knowledge import add_pending_learning
+        proj_dir = tmp_path / "proj"
+        _write_index(proj_dir, _make_index())
+        with mock.patch("lib.shared.get_project_dir", return_value=proj_dir):
+            result = add_pending_learning(learning, "proj")
+        index = json.loads((proj_dir / "recall-index.json").read_text())
+        return result, index["pending_learnings"]
+
+    def test_rejects_failure_streak_proposals(self, tmp_path):
+        result, pending = self._add(tmp_path, {
+            "title": "Recurring general errors (3x in session)",
+            "description": "Hit 3 general errors.",
+            "solution": "Error pattern: something broke",
+            "source": "repeated_pattern",
+        })
+        assert result is False
+        assert pending == []
+
+    def test_rejects_command_substitution_templates(self, tmp_path):
+        result, pending = self._add(tmp_path, {
+            "title": "Fix for cd failure",
+            "description": "Command `cd /a` failed with: nope",
+            "solution": "Use instead: `cd /b`",
+            "source": "failure_resolution",
+        })
+        assert result is False
+        assert pending == []
+
+    def test_rejects_proposal_with_no_fix(self, tmp_path):
+        result, pending = self._add(tmp_path, {"title": "Something", "category": "git"})
+        assert result is False
+        assert pending == []
+
+    def test_accepts_a_proposal_that_states_a_rule(self, tmp_path):
+        result, pending = self._add(tmp_path, {
+            "title": "npm auth fails without the org registry",
+            "description": "npm install 401s against the public registry here",
+            "fix": "Point npm at the org registry before installing",
+            "source": "failure_resolution",
+        })
+        assert result is True
+        assert len(pending) == 1

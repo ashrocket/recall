@@ -34,18 +34,10 @@ class TestDetectPlatform:
         monkeypatch.setenv("CODEX_PROJECT", "/tmp/myproject")
         assert detect_platform() == Platform.CODEX
 
-    def test_detects_gemini_via_version(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_CLI_VERSION", "1.0")
-        assert detect_platform() == Platform.GEMINI_CLI
-
-    def test_detects_gemini_via_session_id(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_SESSION_ID", "xyz-456")
-        assert detect_platform() == Platform.GEMINI_CLI
-
     def test_returns_unknown_with_no_vars(self, monkeypatch):
         for var in ["CLAUDE_CODE_VERSION", "CLAUDE_PROJECT_DIR", "CLAUDE_PLUGIN_ROOT",
                     "CODEX_VERSION", "CODEX_SESSION_ID", "CODEX_PROJECT",
-                    "GEMINI_CLI_VERSION", "GEMINI_SESSION_ID"]:
+                    ]:
             monkeypatch.delenv(var, raising=False)
         assert detect_platform() == Platform.UNKNOWN
 
@@ -64,10 +56,6 @@ class TestGetSessionsDir:
     def test_codex_dir(self):
         d = get_sessions_dir(Platform.CODEX)
         assert str(d).endswith(".codex/sessions")
-
-    def test_gemini_dir(self):
-        d = get_sessions_dir(Platform.GEMINI_CLI)
-        assert str(d).endswith(".gemini/sessions")
 
     def test_unknown_falls_back_to_claude(self):
         d = get_sessions_dir(Platform.UNKNOWN)
