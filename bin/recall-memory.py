@@ -138,8 +138,9 @@ def _sync_codex(learnings, sops, cwd):
 def cmd_sync(project_folder: str, dry_run: bool = False, cwd: str = None,
              target: str = "claude"):
     if target == "claude" and not native_memory.is_enabled():
-        print("Native memory bridge is disabled for this platform "
-              "(or RECALL_NATIVE_MEMORY=0).")
+        print("Native memory bridge is off: this platform, RECALL_NATIVE_MEMORY=0, "
+              "CLAUDE_CODE_DISABLE_AUTO_MEMORY, or autoMemoryEnabled:false in your "
+              "Claude Code settings. `/memory` in Claude Code toggles the last one.")
         return 1
 
     learnings, sops = _collect(project_folder)
