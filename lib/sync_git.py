@@ -56,7 +56,10 @@ class GitProvider(SyncProvider):
                 errors.append({"file": f["relative_path"], "error": str(e)})
 
         if pushed > 0:
-            self._git_in_repo("commit", "-m", f"sync: push {pushed} files")
+            self._git_in_repo(
+                *self._identity_args(),
+                "commit", "-m", f"sync: push {pushed} files",
+            )
             self._push_to_remote(errors)
 
         return {"pushed": pushed, "errors": errors}
@@ -113,6 +116,30 @@ class GitProvider(SyncProvider):
         )
         if push_result2.returncode != 0:
             errors.append({"file": "push", "error": push_result2.stderr.strip()})
+
+    def _identity_args(self):
+        """Return ``-c`` args giving git an author, when the machine has none.
+
+        Git refuses to commit without a configured ``user.email``/``user.name``.
+        The sync mirror is recall's own clone, not the user's project, so a
+        machine with no global git identity should still be able to sync rather
+        than failing with an opaque exit 128. A configured identity always wins:
+        these args are only supplied when git cannot resolve one itself.
+        """
+        try:
+            probe = subprocess.run(
+                ["git", "config", "user.email"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(self.local_dir),
+            )
+            if probe.returncode == 0 and probe.stdout.strip():
+                return []
+        except (OSError, subprocess.SubprocessError):
+            pass
+        return [
+            "-c", "user.name=recall sync",
+            "-c", "user.email=recall-sync@localhost",
+        ]
 
     def _git(self, *args):
         subprocess.run(
