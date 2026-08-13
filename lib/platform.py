@@ -13,7 +13,6 @@ from enum import Enum
 class Platform(str, Enum):
     CLAUDE_CODE = "claude-code"
     CODEX = "codex"
-    GEMINI_CLI = "gemini-cli"
     UNKNOWN = "unknown"
 
 
@@ -26,10 +25,6 @@ def detect_platform() -> Platform:
     # OpenAI Codex CLI
     if os.environ.get("CODEX_VERSION") or os.environ.get("CODEX_SESSION_ID") or os.environ.get("CODEX_PROJECT"):
         return Platform.CODEX
-
-    # Gemini CLI
-    if os.environ.get("GEMINI_CLI_VERSION") or os.environ.get("GEMINI_SESSION_ID"):
-        return Platform.GEMINI_CLI
 
     return Platform.UNKNOWN
 
@@ -56,7 +51,5 @@ def get_sessions_dir(platform: Platform = None) -> Path:
         return Path.home() / ".claude" / "projects"
     elif platform == Platform.CODEX:
         return Path.home() / ".codex" / "sessions"
-    elif platform == Platform.GEMINI_CLI:
-        return Path.home() / ".gemini" / "sessions"
     else:
         return Path.home() / ".claude" / "projects"  # safest fallback

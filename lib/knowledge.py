@@ -124,7 +124,21 @@ def _learning_key(learning: dict) -> str:
 
 
 def add_pending_learning(learning: dict, project_folder: str = None):
-    """Add a learning to the pending queue."""
+    """Add a learning to the pending queue.
+
+    A proposal that cannot state a reusable rule is dropped here rather than
+    queued: asking the user to review something with no fix in it spends their
+    attention and, if approved, plants an entry that stays in the index forever.
+    See :mod:`lib.learning_quality` for the bar.
+    """
+    try:
+        from lib.learning_quality import is_durable
+    except ImportError:
+        from learning_quality import is_durable
+
+    if not is_durable(learning)[0]:
+        return False
+
     index = load_index(project_folder)
     if 'pending_learnings' not in index:
         index['pending_learnings'] = []

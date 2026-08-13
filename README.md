@@ -15,7 +15,7 @@
 
 [![Version](https://img.shields.io/badge/version-3.4.2-f0a050?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 [![License](https://img.shields.io/badge/license-MIT-56b6c2?style=flat-square&labelColor=12151e)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex%20%7C%20Gemini%20CLI-98c379?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
+[![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20Codex-98c379?style=flat-square&labelColor=12151e)](https://github.com/ashrocket/recall)
 
 </div>
 
@@ -34,6 +34,7 @@ When your AI coding agent hits its context limit, work stops. recall captures wh
 | `/recall save` | Locally extract the current session into a restart prompt |
 | `/recall restart` | List saved named restarts; `restart summary` reviews a compact list; `restart <n>`, `<name>`, or `<text>` loads one; `restart --launch <n|text>` opens a separate window; `restart delete <n|text>` prunes old prompts |
 | `/recall failures` | Bash failure patterns and SOPs |
+| `/recall memory` | Bridge approved learnings and SOPs into native memory — a pinned project playbook loaded every session (`sync`, `enable`, `disable`, `clear`, `--codex`) |
 | `/recall learn` | Review and approve pending learnings |
 | `/recall knowledge` | Show current CLAUDE.md (global and project) |
 | `/recall stats` | Skill and learning usage statistics |
@@ -63,9 +64,9 @@ the foreground drain command instead.
 # Claude Code (recommended)
 /plugin marketplace add ashrocket/recall
 
-# Codex CLI / Gemini CLI
+# Codex CLI
 git clone https://github.com/ashrocket/recall ~/.recall
-# then copy AGENTS.md (Codex) or GEMINI.md (Gemini) from this repo
+# then copy AGENTS.md (Codex) from this repo
 # Codex plugin installs use .codex-plugin/plugin.json and expose
 # skills/recall/SKILL.md as the plugin skill.
 ```
@@ -131,6 +132,8 @@ Search is forgiving for day-to-day memory lookup: `/recall sops ?` ignores the s
 /recall restart delete 3   # delete restart #3 and its stored prompt file
 /recall learn              # review and approve pending learnings
 /recall learn --batch      # accept all pending learnings
+/recall learn --prune      # drop approved learnings that state no rule
+/recall memory sync        # promote approved knowledge into native memory
 /recall cleanup --all      # clean noise, sensitive data, old files
 /recall stats              # skill and learning usage stats
 /recall knowledge          # show CLAUDE.md contents
@@ -395,8 +398,8 @@ recall-restarts/     # saved restart prompts
 
 ## Requirements
 
-- Python 3.8+
-- Any AI coding agent — Claude Code, Codex, Gemini CLI, or similar
+- Python 3.10+ (the codebase uses PEP 604 `X | None` annotations)
+- Any AI coding agent — Claude Code or Codex
 
 ---
 

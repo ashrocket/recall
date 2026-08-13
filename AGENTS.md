@@ -50,6 +50,7 @@ tool only; automatic SessionEnd processing must never use it.
 | `$recall restart <n\|text>` | Load a saved restart in the current session |
 | `$recall restart --launch <n\|text>` | Open a separate window for the restart |
 | `$recall restart delete <n\|text>` | Delete a saved restart and stored prompt file |
+| `$recall memory` | Bridge approved learnings into native memory; `$recall memory sync --codex` writes the recall block in this AGENTS.md |
 | `$recall stats` | Skill and learning usage statistics |
 | `$recall knowledge` | Show loaded knowledge |
 | `$recall cleanup` | Analyze and prune the session index |

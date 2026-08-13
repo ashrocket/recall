@@ -5,7 +5,7 @@
 Two things to hold onto before the numbers:
 
 1. **Only one tier of recall costs money to operate.** The CLI, hooks, and SQLite index run on the *user's* machine; the docs microsite and repo are free static hosting. The only cost-bearing surface is the **cloud sync tier** (Cloudflare Worker + R2 + KV + Stripe).
-2. **There is zero LLM cost to the project.** Extraction/restart distillation runs inside the user's own coding agent (Claude Code / Codex / Gemini). recall never calls a model API, so no token bill scales with usage.
+2. **There is zero LLM cost to the project.** Extraction/restart distillation runs inside the user's own coding agent (Claude Code / Codex). recall never calls a model API, so no token bill scales with usage.
 
 ---
 

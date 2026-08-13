@@ -302,3 +302,82 @@ class TestBatchApprove:
         index = json.loads((proj_dir / "recall-index.json").read_text())
         assert len(index["learnings"]) == 1
         assert index["pending_learnings"] == []
+
+
+# ---------------------------------------------------------------------------
+# Native memory promotion on approval
+# ---------------------------------------------------------------------------
+
+class TestPromoteToNativeMemory:
+    """Approving a learning must not write into Claude Code's config tree
+    unless the project explicitly opted in. This is the seam that corrupted a
+    live MEMORY.md during development, so it is tested directly rather than
+    only through lib/native_memory.py."""
+
+    def _seed(self, tmp_path, settings=None):
+        proj_dir = tmp_path / "proj"
+        index = _write_index(proj_dir, pending=[_make_learning("shell", "Tip")])
+        if settings is not None:
+            index["settings"] = settings
+            (proj_dir / "recall-index.json").write_text(json.dumps(index))
+        return proj_dir
+
+    def test_no_promotion_when_not_opted_in(self, tmp_path):
+        mod = _import_recall_learn()
+        proj_dir = self._seed(tmp_path)
+        memdir = tmp_path / "memory"
+
+        with mock.patch("lib.shared.get_project_dir", return_value=proj_dir), \
+             mock.patch("lib.native_memory.memory_dir", return_value=memdir):
+            result = mod.promote_to_native_memory("proj", cwd=str(tmp_path))
+
+        assert result is None
+        assert not memdir.exists()
+
+    def test_promotes_when_opted_in(self, tmp_path):
+        mod = _import_recall_learn()
+        from lib.native_memory import AUTO_PROMOTE_SETTING
+
+        proj_dir = self._seed(tmp_path, settings={AUTO_PROMOTE_SETTING: True})
+        memdir = tmp_path / "memory"
+        memdir.mkdir()  # the bridge refuses to create it itself
+
+        approved = [{"title": "Use uv", "description": "pip fails behind the proxy",
+                     "fix": "Run `uv pip install` instead", "category": "python_error",
+                     "source": "failure_resolution"}]
+        index = json.loads((proj_dir / "recall-index.json").read_text())
+        index["learnings"] = approved
+        (proj_dir / "recall-index.json").write_text(json.dumps(index))
+
+        with mock.patch("lib.shared.get_project_dir", return_value=proj_dir), \
+             mock.patch("lib.native_memory.memory_dir", return_value=memdir):
+            result = mod.promote_to_native_memory("proj", cwd=str(tmp_path))
+
+        assert result is not None
+        assert result.written
+
+    def test_opted_in_but_no_memory_dir_writes_nothing(self, tmp_path):
+        """Opting in still does not let recall create the directory."""
+        mod = _import_recall_learn()
+        from lib.native_memory import AUTO_PROMOTE_SETTING
+
+        proj_dir = self._seed(tmp_path, settings={AUTO_PROMOTE_SETTING: True})
+        memdir = tmp_path / "memory"  # deliberately absent
+
+        with mock.patch("lib.shared.get_project_dir", return_value=proj_dir), \
+             mock.patch("lib.native_memory.memory_dir", return_value=memdir):
+            result = mod.promote_to_native_memory("proj", cwd=str(tmp_path))
+
+        assert not memdir.exists()
+        assert result is None or result.written == []
+
+    def test_approve_one_does_not_write_by_default(self, tmp_path):
+        mod = _import_recall_learn()
+        proj_dir = self._seed(tmp_path)
+        memdir = tmp_path / "memory"
+
+        with mock.patch("lib.shared.get_project_dir", return_value=proj_dir), \
+             mock.patch("lib.native_memory.memory_dir", return_value=memdir):
+            _capture(mod.approve_one, "proj", "0")
+
+        assert not memdir.exists()
