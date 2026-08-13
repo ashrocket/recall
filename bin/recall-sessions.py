@@ -952,9 +952,18 @@ def show_help():
     print(f"  `{command('list')}`               List recent sessions")
     print(f"  `{command('last')}`               Show the previous session")
     print(f"  `{command('<term>')}`             Search messages, commands, failures, skills")
-    print(f"  `{command("'.p8'")}`              Search for a literal token or filename fragment")
-    print(f"  `{command('/.*\\.p8/')}`           Regex search")
-    print(f"  `{command('/*\\.p8/')}`            Forgiving regex shorthand for the same search")
+    # The argument contains single quotes, so it is built outside the f-string:
+    # nesting the same quote character inside an f-string needs Python 3.12+,
+    # and recall supports 3.10.
+    # These arguments contain single quotes and backslashes, so they are built
+    # outside the f-strings: nesting the same quote character, and backslashes
+    # inside an f-string expression, both need Python 3.12+ — recall supports 3.10.
+    literal_example = command("'.p8'")
+    regex_example = command('/.*\\.p8/')
+    regex_shorthand = command('/*\\.p8/')
+    print(f"  `{literal_example}`              Search for a literal token or filename fragment")
+    print(f"  `{regex_example}`           Regex search")
+    print(f"  `{regex_shorthand}`            Forgiving regex shorthand for the same search")
     print()
     print("### Workflow")
     print(f"  `{command('save')}`               Save current work as a restart prompt")
