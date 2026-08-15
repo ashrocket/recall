@@ -30,7 +30,8 @@ Common forms:
 - `/recall restart --launch <n|name|text>` — open a checkpoint in a separate window as a fresh, named `claude` session
 - `/recall restart delete <n|name|text>` — delete a saved restart and its stored prompt file
 - `/recall resume [n]` — list or launch saved native `claude --resume` tokens (captured by cmux at save time)
-- `/recall learn` — review pending learnings
+- `/recall learn` — review pending learnings; `learn --prune` drops approved ones that state no reusable rule
+- `/recall memory [sync|enable|disable|clear|store-env]` — bridge approved learnings and SOPs into native memory, including a pinned project playbook whose full text loads every session; `sync` is explicit, `enable` opts into promoting on approval, `--codex` targets AGENTS.md instead
 - `/recall stats` — skill and learning usage stats
 - `/recall knowledge` — show loaded CLAUDE.md knowledge
 - `/recall cleanup` — analyze and prune the session index

@@ -117,6 +117,12 @@ def _truthy_env(name: str) -> bool:
     return value in {'1', 'true', 'yes', 'on', 'full', 'verbose'}
 
 
+def recall_command(subcommand: str = '') -> str:
+    """Return the invocation syntax supported by the current agent surface."""
+    prefix = '$recall' if os.environ.get('RECALL_AGENT', '').lower() == 'codex' else '/recall'
+    return f"{prefix} {subcommand}".rstrip()
+
+
 def format_time_ago(date_str: str) -> str:
     """Format date as relative time."""
     try:
@@ -155,11 +161,11 @@ def format_compact_context(index: dict, sorted_sessions: list) -> str:
     if issue_count > 0:
         parts.append(f"{issue_count} recurring {_plural(issue_count, 'issue')} available")
 
-    detail_commands = ["/recall last"]
+    detail_commands = [recall_command('last')]
     if pending > 0:
-        detail_commands.append("/recall learn")
+        detail_commands.append(recall_command('learn'))
     if issue_count > 0:
-        detail_commands.append("/recall failures")
+        detail_commands.append(recall_command('failures'))
 
     return f"Recall: {'; '.join(parts)}. Details: {' | '.join(detail_commands)}."
 
@@ -168,7 +174,7 @@ def format_verbose_context(index: dict, sorted_sessions: list) -> str:
     sessions = index.get('sessions', {})
     failure_patterns = index.get('failure_patterns', {})
     output = []
-    output.append("## Session Context from /recall")
+    output.append(f"## Session Context from {recall_command()}")
     output.append("")
 
     # Show last session summary
@@ -193,14 +199,14 @@ def format_verbose_context(index: dict, sorted_sessions: list) -> str:
     pending = len(index.get('pending_learnings', []))
     if pending > 0:
         output.append("")
-        output.append(f"**Pending:** {pending} learnings awaiting review (`/recall learn`)")
+        output.append(f"**Pending:** {pending} learnings awaiting review (`{recall_command('learn')}`)")
 
     # Show recurring failure patterns (if any)
     significant_patterns = _significant_failure_patterns(failure_patterns)
 
     if significant_patterns:
         output.append("")
-        output.append("**Recurring issues** (use `/recall failures` for details):")
+        output.append(f"**Recurring issues** (use `{recall_command('failures')}` for details):")
         for pattern, count, last_failure in significant_patterns[:3]:
             pattern_name = pattern.replace('_', ' ').title()
             output.append(f"  - {pattern_name}: {count}x (last: `{last_failure.get('command', 'unknown')[:50]}...`)")
@@ -214,7 +220,7 @@ def format_verbose_context(index: dict, sorted_sessions: list) -> str:
             output.append(f"**Possible continuation**: \"{last_msg[:100]}...\"")
 
     output.append("")
-    output.append("_Use `/recall` to search past sessions, `/recall last` for full previous session_")
+    output.append(f"_Use `{recall_command()}` to search past sessions, `{recall_command('last')}` for the full previous session_")
     output.append("")
 
     return '\n'.join(output)

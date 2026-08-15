@@ -80,12 +80,12 @@ fn format_compact_context(index: &Value, sorted_sessions: &[(&String, &Value)]) 
         ));
     }
 
-    let mut detail_commands = vec!["/recall last"];
+    let mut detail_commands = vec![recall_command("last")];
     if pending > 0 {
-        detail_commands.push("/recall learn");
+        detail_commands.push(recall_command("learn"));
     }
     if issue_count > 0 {
-        detail_commands.push("/recall failures");
+        detail_commands.push(recall_command("failures"));
     }
 
     format!(
@@ -102,7 +102,7 @@ fn format_verbose_context(index: &Value, sorted_sessions: &[(&String, &Value)]) 
         .cloned()
         .unwrap_or_default();
     let mut output = Vec::new();
-    output.push("## Session Context from /recall".to_string());
+    output.push(format!("## Session Context from {}", recall_command("")));
     output.push(String::new());
 
     let (_last_id, last_session) = sorted_sessions[0];
@@ -140,15 +140,19 @@ fn format_verbose_context(index: &Value, sorted_sessions: &[(&String, &Value)]) 
     if pending > 0 {
         output.push(String::new());
         output.push(format!(
-            "**Pending:** {} learnings awaiting review (`/recall learn`)",
-            pending
+            "**Pending:** {} learnings awaiting review (`{}`)",
+            pending,
+            recall_command("learn")
         ));
     }
 
     let significant = significant_failure_patterns(&index);
     if !significant.is_empty() {
         output.push(String::new());
-        output.push("**Recurring issues** (use `/recall failures` for details):".to_string());
+        output.push(format!(
+            "**Recurring issues** (use `{}` for details):",
+            recall_command("failures")
+        ));
         for (pattern, count, command) in significant.into_iter().take(3) {
             output.push(format!(
                 "  - {}: {}x (last: `{}...`)",
@@ -180,10 +184,11 @@ fn format_verbose_context(index: &Value, sorted_sessions: &[(&String, &Value)]) 
     }
 
     output.push(String::new());
-    output.push(
-        "_Use `/recall` to search past sessions, `/recall last` for full previous session_"
-            .to_string(),
-    );
+    output.push(format!(
+        "_Use `{}` to search past sessions, `{}` for the full previous session_",
+        recall_command(""),
+        recall_command("last")
+    ));
     output.push(String::new());
 
     output.join("\n")
@@ -206,6 +211,22 @@ fn env_truthy(name: &str) -> bool {
             )
         })
         .unwrap_or(false)
+}
+
+fn recall_command(subcommand: &str) -> String {
+    let prefix = if env::var("RECALL_AGENT")
+        .map(|value| value.eq_ignore_ascii_case("codex"))
+        .unwrap_or(false)
+    {
+        "$recall"
+    } else {
+        "/recall"
+    };
+    if subcommand.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{} {}", prefix, subcommand)
+    }
 }
 
 fn home_dir() -> PathBuf {

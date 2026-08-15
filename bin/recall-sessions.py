@@ -72,6 +72,7 @@ from lib.recall_format import (
     show_failures,
 )
 from lib.text_rank import rank_query_texts
+from lib.platform import recall_command
 
 
 SEARCH_SCAN_LIMIT = 40
@@ -289,7 +290,7 @@ def export_index(index: dict, project_folder: str, export_path: str = None):
     skills = index.get('usage', {}).get('skills', {})
     print(f"  - {len(skills)} skills tracked")
     print()
-    print("Use `/recall import <file>` to restore this backup.")
+    print(f"Use `{recall_command('import', '<file>')}` to restore this backup.")
 
 def import_index(project_folder: str, import_path: str):
     """Import index from a backup file."""
@@ -373,7 +374,7 @@ def reset_index(index: dict, project_folder: str):
     print("Created empty index. Previous data backed up above.")
     print()
     print("The index will rebuild as you use sessions.")
-    print("Use `/recall import <file>` to restore from backup.")
+    print(f"Use `{recall_command('import', '<file>')}` to restore from backup.")
 
 def find_session_files(project_folder: str) -> list:
     """Find all session files for a project, sorted by modification time."""
@@ -701,12 +702,12 @@ def show_cleanup_analysis(index: dict, sessions: list, project_folder: str, acti
     # Show available cleanup actions
     print("---")
     print("### Cleanup Commands")
-    print("  `/recall cleanup --dry-run`    - Re-show this analysis (default)")
-    print("  `/recall cleanup --execute`    - Run all cleanup actions")
-    print("  `/recall cleanup --noise`      - Remove {0} low-value sessions".format(len(noise_sessions)))
-    print("  `/recall cleanup --sensitive`  - Remove {0} sessions with sensitive data".format(len(sensitive_sessions)))
-    print("  `/recall cleanup --jsonl`      - Remove old .jsonl files (>30d sessions, >7d agents)")
-    print("  `/recall cleanup --dedup`      - Deduplicate {0} failure pattern entries".format(dup_count))
+    print(f"  `{recall_command('cleanup', '--dry-run')}`    - Re-show this analysis (default)")
+    print(f"  `{recall_command('cleanup', '--execute')}`    - Run all cleanup actions")
+    print(f"  `{recall_command('cleanup', '--noise')}`      - Remove {len(noise_sessions)} low-value sessions")
+    print(f"  `{recall_command('cleanup', '--sensitive')}`  - Remove {len(sensitive_sessions)} sessions with sensitive data")
+    print(f"  `{recall_command('cleanup', '--jsonl')}`      - Remove old .jsonl files (>30d sessions, >7d agents)")
+    print(f"  `{recall_command('cleanup', '--dedup')}`      - Deduplicate {dup_count} failure pattern entries")
 
 def show_last_session(index: dict, sessions: list, project_folder: str):
     """Show previous session details.
@@ -943,38 +944,48 @@ def show_knowledge(project_folder: str):
 
     if not by_cat:
         print("No knowledge loaded yet.")
-        print("Use `/recall learn` to review and approve pending learnings.")
+        print(f"Use `{recall_command('learn')}` to review and approve pending learnings.")
 
 
 def show_help():
-    """Print concise /recall command help."""
-    print("## /recall Help")
+    """Print concise help using the active agent's invocation syntax."""
+    command = recall_command
+    print(f"## {command()} Help")
     print()
-    print("`/recall` is one command with script-backed subcommands and search fallback.")
+    print(f"`{command()}` is one command with script-backed subcommands and search fallback.")
     print()
     print("### Core")
-    print("  `/recall`                    List recent sessions")
-    print("  `/recall list`               List recent sessions")
-    print("  `/recall last`               Show the previous session")
-    print("  `/recall <term>`             Search messages, commands, failures, skills")
-    print("  `/recall '.p8'`              Search for a literal token or filename fragment")
-    print("  `/recall /.*\\.p8/`           Regex search")
-    print("  `/recall /*\\.p8/`            Forgiving regex shorthand for the same search")
+    print(f"  `{command()}`                    List recent sessions")
+    print(f"  `{command('list')}`               List recent sessions")
+    print(f"  `{command('last')}`               Show the previous session")
+    print(f"  `{command('<term>')}`             Search messages, commands, failures, skills")
+    # The argument contains single quotes, so it is built outside the f-string:
+    # nesting the same quote character inside an f-string needs Python 3.12+,
+    # and recall supports 3.10.
+    # These arguments contain single quotes and backslashes, so they are built
+    # outside the f-strings: nesting the same quote character, and backslashes
+    # inside an f-string expression, both need Python 3.12+ — recall supports 3.10.
+    literal_example = command("'.p8'")
+    regex_example = command('/.*\\.p8/')
+    regex_shorthand = command('/*\\.p8/')
+    print(f"  `{literal_example}`              Search for a literal token or filename fragment")
+    print(f"  `{regex_example}`           Regex search")
+    print(f"  `{regex_shorthand}`            Forgiving regex shorthand for the same search")
     print()
     print("### Workflow")
-    print("  `/recall save`               Save current work as a restart prompt")
-    print("  `/recall restart`            List saved restart prompts")
-    print("  `/recall restart <n|text>`   Load by list number, or match by text")
-    print("  `/recall restart --launch <n|text>`")
+    print(f"  `{command('save')}`               Save current work as a restart prompt")
+    print(f"  `{command('restart')}`            List saved restart prompts")
+    print(f"  `{command('restart', '<n|text>')}`   Load by list number, or match by text")
+    print(f"  `{command('restart', '--launch', '<n|text>')}`")
     print("                              Open the restart in a separate window")
-    print("  `/recall learn`              Review pending learnings")
-    print("  `/recall failures`           Show failure patterns and approved learnings")
+    print(f"  `{command('learn')}`              Review pending learnings")
+    print(f"  `{command('failures')}`           Show failure patterns and approved learnings")
     print()
     print("### Maintenance")
-    print("  `/recall stats`              Show usage stats")
-    print("  `/recall knowledge`          Show loaded knowledge")
-    print("  `/recall cleanup`            Analyze cleanup opportunities")
-    print("  `/recall help`               Show this help")
+    print(f"  `{command('stats')}`              Show usage stats")
+    print(f"  `{command('knowledge')}`          Show loaded knowledge")
+    print(f"  `{command('cleanup')}`            Analyze cleanup opportunities")
+    print(f"  `{command('help')}`               Show this help")
 
 
 def main():
@@ -1064,8 +1075,8 @@ def main():
             if cmd_arg:
                 import_index(project_folder, cmd_arg)
             else:
-                print("Usage: /recall import <file>")
-                print("Example: /recall import recall-backup.json")
+                print(f"Usage: {recall_command('import', '<file>')}")
+                print(f"Example: {recall_command('import', 'recall-backup.json')}")
         elif cmd_name == 'reset':
             reset_index(index, project_folder)
         elif cmd_name == 'cleanup':

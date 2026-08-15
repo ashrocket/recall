@@ -13,7 +13,6 @@ from enum import Enum
 class Platform(str, Enum):
     CLAUDE_CODE = "claude-code"
     CODEX = "codex"
-    GEMINI_CLI = "gemini-cli"
     UNKNOWN = "unknown"
 
 
@@ -27,11 +26,20 @@ def detect_platform() -> Platform:
     if os.environ.get("CODEX_VERSION") or os.environ.get("CODEX_SESSION_ID") or os.environ.get("CODEX_PROJECT"):
         return Platform.CODEX
 
-    # Gemini CLI
-    if os.environ.get("GEMINI_CLI_VERSION") or os.environ.get("GEMINI_SESSION_ID"):
-        return Platform.GEMINI_CLI
-
     return Platform.UNKNOWN
+
+
+def recall_command(*parts: str) -> str:
+    """Format a Recall invocation for the active agent surface.
+
+    Codex exposes Recall as a skill invocation (``$recall``), while Claude
+    Code exposes it as a slash command. ``RECALL_AGENT`` is an explicit
+    override for hooks and scripts where the host does not forward its usual
+    platform environment variables.
+    """
+    agent = os.environ.get("RECALL_AGENT", "").strip().lower()
+    prefix = "$recall" if agent == "codex" or detect_platform() == Platform.CODEX else "/recall"
+    return " ".join((prefix, *parts))
 
 
 def get_sessions_dir(platform: Platform = None) -> Path:
@@ -43,7 +51,5 @@ def get_sessions_dir(platform: Platform = None) -> Path:
         return Path.home() / ".claude" / "projects"
     elif platform == Platform.CODEX:
         return Path.home() / ".codex" / "sessions"
-    elif platform == Platform.GEMINI_CLI:
-        return Path.home() / ".gemini" / "sessions"
     else:
         return Path.home() / ".claude" / "projects"  # safest fallback

@@ -37,11 +37,12 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from lib.shared import (
     atomic_write_json,
+    categorize_error,
     get_project_folders,
+    get_session_details_dir,
+    is_failure_output,
     load_index,
     save_index,
-    get_session_details_dir,
-    categorize_error,
 )
 
 
@@ -232,18 +233,11 @@ def parse_codex_rollout(lines: list) -> dict:
                 call_id = payload.get("call_id", "")
                 output = payload.get("output", "") or ""
                 exit_code = _extract_exit_code(output)
-                is_failure = exit_code is not None and exit_code != 0
-
-                if not is_failure:
-                    # Also catch error keywords even if exit code is missing
-                    is_failure = any(
-                        kw in output.lower()
-                        for kw in ["error:", "traceback", "exception", "permission denied",
-                                   "no such file", "command not found"]
-                    )
-
-                if is_failure and call_id in pending_calls:
-                    command = pending_calls[call_id]
+                command = pending_calls.get(call_id, "")
+                # Some tool wrappers report a zero transport status while
+                # embedding a genuine command failure in their output.
+                embedded_failure = re.search(r"(?:^|\n)(?:Output:\n)?\s*(?:error|fatal|failed|exception)\s*:", output, re.I)
+                if (is_failure_output(output, exit_code, command) or is_failure_output(output, None, command) or embedded_failure) and command:
                     result["failures"].append({
                         "command": command,
                         "error": output[:200],
@@ -302,6 +296,19 @@ def main():
     # Determine project dir: CLI arg > session_meta.cwd > env > cwd
     cwd = args.project_dir or session_data.get("cwd") or os.environ.get("CODEX_PROJECT") or os.getcwd()
     project_folder, _ = get_project_folders(cwd)
+
+    # Compatibility commands use the same locked, idempotent persistence
+    # service as the queue. `--latest` is intentionally manual-only.
+    if args.file or args.latest:
+        from lib.session_indexing import apply_indexed_session
+        source = Path(args.file) if args.file else session_file
+        try:
+            apply_indexed_session(project_folder, "codex", source, None)
+        except (OSError, ValueError) as exc:
+            print(f"Recall SessionEnd skipped: {exc}", file=sys.stderr)
+            return
+        print(f"Indexed Codex session {session_data['session_id']} (shared index service)")
+        return
 
     # Save full details, but never fail the hook when the detail path is
     # unavailable in the current sandbox or runtime environment.

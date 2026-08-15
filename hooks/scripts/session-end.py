@@ -23,6 +23,7 @@ from lib.shared import (
     get_project_folder,
     get_project_folders,
     get_session_details_dir,
+    is_failure_output,
     load_index as _shared_load_index,
     save_index as _shared_save_index,
     categorize_error,
@@ -53,29 +54,11 @@ TOPIC_STOP_WORDS = {
 
 # Trivial messages to skip in summary generation
 TRIVIAL_MESSAGES = {'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'y', 'n', 'continue', 'go ahead', 'do it'}
-
-# Failure markers for tool results that did NOT report is_error (e.g. exit
-# code masked by a pipe). High-precision only: substrings that rarely appear
-# in successful output, plus line-anchored markers so quoted code in diff or
-# cat output ('+  assert "not found" ...') is not misread as a failure.
-FAILURE_SUBSTRINGS = (
-    'command not found',
-    'permission denied',
-    'no such file or directory',
-    'traceback (most recent call last)',
-)
-FAILURE_LINE_RE = re.compile(
-    r'^\s*(?:error\b\s*:|fatal:|failed\b|\d+ failed\b|exception\b\s*:)',
-    re.IGNORECASE | re.MULTILINE,
-)
-
+_HOOK_EVENT = None
 
 def looks_like_failure_output(text: str) -> bool:
-    """Detect failure output when the platform did not flag is_error."""
-    lower = text.lower()
-    if any(marker in lower for marker in FAILURE_SUBSTRINGS):
-        return True
-    return bool(FAILURE_LINE_RE.search(text))
+    """Compatibility wrapper for conservative shared failure detection."""
+    return is_failure_output(text)
 
 
 def _find_sessions_in_folder(project_folder: str) -> list:
@@ -422,13 +405,68 @@ def should_emit_session_end_json() -> bool:
 
 
 def emit_session_end_output():
-    """Emit the minimal Codex-compatible SessionEnd hook object when required."""
+    """Emit the minimal host-specific hook response, never progress text."""
+    # Codex sends the low-level Stop contract. Its valid acknowledgement is an
+    # empty JSON object, not Claude's hookSpecificOutput envelope.
+    if isinstance(_HOOK_EVENT, dict) and str(_HOOK_EVENT.get("hook_event_name", "")).lower() == "stop":
+        print("{}")
+        return
     if should_emit_session_end_json():
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionEnd"}}))
 
 
+def _event_source_path() -> str:
+    """Return an exact path supplied by the host event, never a mtime guess.
+
+    The documented escape hatch is RECALL_SESSION_FILE.  A few host event
+    spellings are accepted only when received as explicit JSON input; unknown
+    schemas deliberately skip rather than indexing another session.
+    """
+    value = os.environ.get("RECALL_SESSION_FILE", "")
+    if value:
+        return value
+    global _HOOK_EVENT
+    if sys.stdin.isatty():
+        return ""
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, OSError):
+        return ""
+    if not isinstance(event, dict):
+        return ""
+    _HOOK_EVENT = event
+    for key in ("session_file", "source_path", "transcript_path"):
+        if isinstance(event.get(key), str):
+            return event[key]
+    return ""
+
+
+def enqueue_hook_job():
+    """Bounded SessionEnd adapter: validate and enqueue, then always return."""
+    from lib.session_jobs import JobError, enqueue
+    source = _event_source_path()
+    platform = os.environ.get("RECALL_SESSION_PLATFORM", "").lower()
+    if not platform:
+        is_codex_stop = isinstance(_HOOK_EVENT, dict) and str(_HOOK_EVENT.get("hook_event_name", "")).lower() == "stop"
+        platform = "codex" if is_codex_stop or os.environ.get("RECALL_AGENT") == "codex" or any(k.startswith("CODEX_") for k in os.environ) else "claude"
+    cwd = os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("CODEX_PROJECT") or os.getcwd()
+    project_folder, _ = get_project_folders(cwd)
+    if not source:
+        warn_and_skip_hook("no exact transcript path supplied; queue not created")
+        emit_session_end_output()
+        return
+    try:
+        enqueue(platform, source, cwd, project_folder)
+    except (JobError, OSError) as exc:
+        warn_and_skip_hook(str(exc))
+    emit_session_end_output()
+
+
 def main():
     args = sys.argv[1:]
+    if "--enqueue" in args:
+        enqueue_hook_job()
+        return
     session_file_override = os.environ.get('RECALL_SESSION_FILE', '')
     if '--session-file' in args:
         idx = args.index('--session-file')
@@ -437,6 +475,22 @@ def main():
             sys.exit(2)
         session_file_override = args[idx + 1]
         del args[idx:idx + 2]
+
+        # The legacy explicit-file command remains supported, but now takes
+        # the same locked atomic commit path as a queued worker.  Automatic
+        # hooks never reach this branch.
+        from lib.session_indexing import apply_indexed_session
+        cwd = os.environ.get('CLAUDE_PROJECT_DIR') or (args[0] if args else os.getcwd())
+        project_folder, _ = get_project_folders(cwd)
+        try:
+            apply_indexed_session(project_folder, 'claude', Path(session_file_override), None)
+            # recall-save combines stderr with stdout and uses this stable
+            # prefix to decide whether it can read the newly indexed session.
+            print(f"Indexed session {Path(session_file_override).stem} (shared index service)", file=sys.stderr)
+        except (OSError, ValueError) as exc:
+            warn_and_skip_hook(str(exc))
+        emit_session_end_output()
+        return
 
     # Get project path from environment or argument
     cwd = os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()

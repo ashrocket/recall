@@ -22,6 +22,11 @@ shift
 SUBCOMMAND=${1:-}
 
 case "$SUBCOMMAND" in
+  jobs)
+    shift || true
+    # A drain without --project intentionally scans every project queue.
+    exec python3 "$ROOT/bin/recall-jobs.py" "$@"
+    ;;
   export|import|reset|cleanup|knowledge)
     exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" "$@"
     ;;
@@ -39,6 +44,11 @@ case "$SUBCOMMAND" in
       LAUNCH=1
       shift || true
     fi
+    # Accept the natural `restart <name> --launch` ordering too.
+    if [ "$#" -eq 2 ] && { [ "$2" = "--launch" ] || [ "$2" = "-l" ]; }; then
+      LAUNCH=1
+      set -- "$1"
+    fi
     RESTART_ARG=${1:-}
     case "$RESTART_ARG" in
       ""|list) exec python3 "$ROOT/bin/recall-restart.py" list ;;
@@ -46,7 +56,11 @@ case "$SUBCOMMAND" in
       delete|rm|remove)
         shift || true
         if [ "$#" -lt 1 ]; then
-          echo "Usage: /recall restart delete <number|name|text>" >&2
+          if [ "${RECALL_AGENT:-}" = "codex" ]; then
+            echo "Usage: \$recall restart delete <number|name|text>" >&2
+          else
+            echo "Usage: /recall restart delete <number|name|text>" >&2
+          fi
           exit 1
         fi
         exec python3 "$ROOT/bin/recall-restart.py" delete "$*"
@@ -69,6 +83,10 @@ case "$SUBCOMMAND" in
     # recall-sessions.py owns learn's approve/reject flags.
     shift || true
     exec python3 "$ROOT/bin/recall-sessions.py" "$CWD_ARG" learn "$@"
+    ;;
+  memory)
+    shift || true
+    exec python3 "$ROOT/bin/recall-memory.py" "$CWD_ARG" "$@"
     ;;
 esac
 

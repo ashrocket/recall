@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -330,6 +331,11 @@ def get_session_details_dir(project_folder: str = None) -> Path:
     return get_project_dir(project_folder) / 'recall-sessions'
 
 
+def get_session_jobs_dir(project_folder: str = None) -> Path:
+    """Return the durable per-project SessionEnd job queue directory."""
+    return get_project_dir(project_folder) / 'recall-jobs'
+
+
 def get_restarts_dir(project_folder: str = None) -> Path:
     """Return the directory for restart checkpoint files."""
     return get_project_dir(project_folder) / 'recall-restarts'
@@ -419,7 +425,26 @@ def save_index(index: dict, project_folder: str = None, prune_fn: Callable = Non
         index = prune_fn(index)
 
     index_file = index_dir / 'recall-index.json'
-    atomic_write_json(index_file, index, indent=2, default=str)
+    # A SessionEnd worker can be interrupted at any point.  Never leave an
+    # incomplete JSON document behind: write and sync a sibling then replace.
+    fd, tmp_name = tempfile.mkstemp(prefix='.recall-index.', suffix='.tmp', dir=index_dir)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(index, f, indent=2, default=str)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp_name, 0o600)
+        os.replace(tmp_name, index_file)
+        dir_fd = os.open(index_dir, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -508,6 +533,33 @@ _ERROR_PATTERNS = [
     ('npm_error', ['npm err', 'npm warn']),
     ('python_error', ['traceback', 'exception']),
 ]
+
+
+_EXPECTED_EXIT_ONE = re.compile(r"^\s*(?:rg|grep|pgrep|diff|cmp)\b")
+_FAILURE_PREFIX = re.compile(
+    r"^\s*(?:error\s*:|fatal:|failed\b|exception\s*:|traceback \(most recent call last\)|"
+    r"permission denied\b|command not found\b|no such file or directory\b)",
+    re.IGNORECASE,
+)
+
+
+def is_failure_output(output: str, exit_code: Optional[int] = None, command: str = "") -> bool:
+    """Return whether a tool result is a real operational failure.
+
+    An exit status is authoritative when available. A handful of inspection
+    commands use exit code 1 to mean an empty result, which should not become
+    a memory failure. Without an exit status, only an error at the start of
+    the result is accepted; matching arbitrary text would classify logs,
+    fixtures, and successful search output as failures.
+    """
+    if exit_code is not None:
+        if exit_code == 0:
+            return False
+        if exit_code == 1 and _EXPECTED_EXIT_ONE.match(command or ""):
+            return False
+        return True
+
+    return bool(_FAILURE_PREFIX.search(output or ""))
 
 
 def categorize_error(error_msg: str) -> str:

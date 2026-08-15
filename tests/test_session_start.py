@@ -134,3 +134,25 @@ class TestFormatSessionContext:
         assert result.startswith("## Session Context from /recall")
         assert "Long previous-session summary" in result
         assert "git pull --rebase" in result
+
+    def test_codex_context_uses_skill_invocation_not_slash_commands(self, monkeypatch):
+        mod = _import_session_start()
+        monkeypatch.setenv("RECALL_AGENT", "codex")
+
+        result = mod.format_session_context(self._index(), self._sorted_sessions(self._index()))
+
+        assert "$recall last" in result
+        assert "$recall learn" in result
+        assert "$recall failures" in result
+        assert "/recall" not in result
+
+    def test_codex_verbose_context_uses_skill_invocation_not_slash_commands(self, monkeypatch):
+        mod = _import_session_start()
+        monkeypatch.setenv("RECALL_AGENT", "codex")
+        monkeypatch.setenv("RECALL_SESSION_START_VERBOSE", "1")
+
+        result = mod.format_session_context(self._index(), self._sorted_sessions(self._index()))
+
+        assert result.startswith("## Session Context from $recall")
+        assert "$recall failures" in result
+        assert "/recall" not in result

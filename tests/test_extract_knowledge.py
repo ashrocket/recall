@@ -93,9 +93,42 @@ class TestExtractFailureResolutionPairs:
         )
         proposals = mod.extract_failure_resolution_pairs(session, "work")
         assert len(proposals) == 1
-        assert "git push git@" in proposals[0]["solution"]
+        assert "git push git@" in proposals[0]["fix"]
         assert proposals[0]["bucket"] == "work"
         assert proposals[0]["source"] == "failure_resolution"
+
+    def test_unclassifiable_error_is_not_proposed(self):
+        """Sharing a first token is not evidence of a fix.
+
+        Without a nameable error class there is no rule to state, so two
+        unrelated `cd` commands must not become a learning.
+        """
+        mod = _import_extract_knowledge()
+        session = _make_session(
+            commands=[
+                {"command": "cd /a && make", "index": 1},
+                {"command": "cd /b && ls", "index": 5},
+            ],
+            failures=[
+                {"command": "cd /a && make", "error": "something went wrong", "index": 2},
+            ],
+        )
+        assert mod.extract_failure_resolution_pairs(session, "work") == []
+
+    def test_resolution_that_did_not_stick_is_not_proposed(self):
+        """If the same command fails again afterwards, nothing was resolved."""
+        mod = _import_extract_knowledge()
+        session = _make_session(
+            commands=[
+                {"command": "git push https://x", "index": 1},
+                {"command": "git push git@x", "index": 3},
+            ],
+            failures=[
+                {"command": "git push https://x", "error": "fatal: denied", "index": 2},
+                {"command": "git push https://x", "error": "fatal: denied", "index": 5},
+            ],
+        )
+        assert mod.extract_failure_resolution_pairs(session, "work") == []
 
     def test_no_resolution_when_later_command_absent(self):
         mod = _import_extract_knowledge()
@@ -153,20 +186,41 @@ class TestExtractFailureResolutionPairs:
 # extract_repeated_failure_patterns
 # ---------------------------------------------------------------------------
 
+def _sops(name="perms", pattern="permission denied", fixes=("Run it under sudo -E",)):
+    return {"version": 1, "sops": {
+        name: {"description": "d", "patterns": [pattern], "fixes": list(fixes)},
+    }}
+
+
 class TestExtractRepeatedFailurePatterns:
-    def test_proposes_when_three_or_more_same_category(self):
+    """A recurrence is a signal, not a rule. It only becomes a proposal when a
+    matching SOP supplies the fix — otherwise it stays in `/recall failures`."""
+
+    def test_proposes_when_a_matching_sop_supplies_the_fix(self):
         mod = _import_extract_knowledge()
         session = _make_session(failures=[
             {"command": "cat /etc/shadow", "error": "Permission denied", "index": 1},
             {"command": "sudo cat /etc/shadow", "error": "Permission denied", "index": 3},
             {"command": "less /etc/shadow", "error": "Permission denied", "index": 5},
         ])
-        proposals = mod.extract_repeated_failure_patterns(session)
+        with mock.patch("sops.load_sops", return_value=_sops()):
+            proposals = mod.extract_repeated_failure_patterns(session)
+
         assert len(proposals) == 1
         assert proposals[0]["category"] == "permissions"
-        assert "3" in proposals[0]["title"] or 3 <= int(next(
-            c for c in proposals[0]["title"] if c.isdigit()
-        ))
+        assert proposals[0]["fix"] == "Run it under sudo -E"
+        assert proposals[0]["source"] == "repeated_pattern_with_sop"
+
+    def test_no_proposal_when_no_sop_matches(self):
+        """The old behaviour: a bare count with stderr pasted in as the fix."""
+        mod = _import_extract_knowledge()
+        session = _make_session(failures=[
+            {"command": "cat /etc/shadow", "error": "Permission denied", "index": 1},
+            {"command": "sudo cat /etc/shadow", "error": "Permission denied", "index": 3},
+            {"command": "less /etc/shadow", "error": "Permission denied", "index": 5},
+        ])
+        with mock.patch("sops.load_sops", return_value={"version": 1, "sops": {}}):
+            assert mod.extract_repeated_failure_patterns(session) == []
 
     def test_no_proposal_when_fewer_than_three(self):
         mod = _import_extract_knowledge()
@@ -197,7 +251,13 @@ class TestExtractRepeatedFailurePatterns:
         ] + [
             {"command": f"git{i}", "error": "fatal: merge conflict detected"} for i in range(3)
         ])
-        proposals = mod.extract_repeated_failure_patterns(session)
+        sops = {"version": 1, "sops": {
+            "perms": {"patterns": ["permission denied"], "fixes": ["sudo -E"]},
+            "gitfix": {"patterns": ["merge conflict"], "fixes": ["git rebase --abort"]},
+        }}
+        with mock.patch("sops.load_sops", return_value=sops):
+            proposals = mod.extract_repeated_failure_patterns(session)
+
         categories = {p["category"] for p in proposals}
         assert "permissions" in categories
         assert "git" in categories

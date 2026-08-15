@@ -937,6 +937,26 @@ class TestCmdSummary:
         out = capsys.readouterr().out
         assert "No restart entries" in out
 
+    def test_uses_codex_skill_syntax_when_requested(self, capsys, monkeypatch):
+        mod = _import_recall_restart()
+        entry = {
+            "id": 1,
+            "summary": "fix auth",
+            "status": "saved",
+            "role": "lead",
+            "working_directory": "/tmp/app",
+            "date": "2026-07-01",
+            "prompt_file": "",
+        }
+        monkeypatch.setenv("RECALL_AGENT", "codex")
+        with mock.patch.object(mod, "ordered_display_entries", return_value=[(1, entry, "proj")]), \
+             mock.patch.object(mod, "get_project_folder", return_value="proj"):
+            mod.cmd_summary(self._make_args())
+
+        out = capsys.readouterr().out
+        assert "$recall restart <number|name>" in out
+        assert "/recall" not in out
+
 
 # ---------------------------------------------------------------------------
 # cmd_delete

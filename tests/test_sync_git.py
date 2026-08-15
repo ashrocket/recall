@@ -249,3 +249,61 @@ def test_git_provider_default_local_dir():
     from lib.sync_git import GitProvider
     provider = GitProvider()
     assert provider.local_dir == Path.home() / ".local" / "share" / "recall" / "sync"
+
+
+def test_push_commits_on_a_machine_with_no_git_identity(tmp_path, monkeypatch):
+    """CI — and any fresh machine — has no user.email configured.
+
+    git refuses to commit without one, so sync used to die with an opaque
+    exit 128. recall supplies its own identity for its own mirror rather than
+    failing.
+    """
+    from lib.sync_git import GitProvider
+    from lib.sync_config import SyncConfig
+
+    # Strip every source of git identity, the way a fresh machine looks.
+    empty = tmp_path / "empty-gitconfig"
+    empty.write_text("")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    for var in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
+                "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"):
+        monkeypatch.delenv(var, raising=False)
+
+    bare = _init_bare_repo(tmp_path / "remote.git")
+    local = tmp_path / "local"
+    config = SyncConfig(provider="github", repo=bare)
+    provider = GitProvider(local_dir=local)
+    provider.init(config)
+
+    result = provider.push(
+        [{"relative_path": "learnings/x.yaml", "content": b"a: 1"}], config
+    )
+
+    assert result["pushed"] == 1
+    log = subprocess.run(["git", "log", "--oneline"], cwd=str(local),
+                         capture_output=True, text=True)
+    assert "sync: push 1 files" in log.stdout
+
+
+def test_configured_git_identity_is_not_overridden(tmp_path, monkeypatch):
+    """A user who has an identity keeps it — the fallback is a fallback."""
+    from lib.sync_git import GitProvider
+    from lib.sync_config import SyncConfig
+
+    bare = _init_bare_repo(tmp_path / "remote.git")
+    local = tmp_path / "local"
+    config = SyncConfig(provider="github", repo=bare)
+    provider = GitProvider(local_dir=local)
+    provider.init(config)
+    subprocess.run(["git", "config", "user.email", "me@example.com"],
+                   cwd=str(local), capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Me"],
+                   cwd=str(local), capture_output=True)
+
+    provider.push([{"relative_path": "learnings/x.yaml", "content": b"a: 1"}], config)
+
+    author = subprocess.run(["git", "log", "-1", "--format=%ae"], cwd=str(local),
+                            capture_output=True, text=True)
+    assert author.stdout.strip() == "me@example.com"

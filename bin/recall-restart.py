@@ -38,6 +38,7 @@ from lib.shared import (
     save_agents,
     resolve_project_root,
 )
+from lib.platform import recall_command
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -96,7 +97,7 @@ def slugify(text: str, max_length: int = 72) -> str:
 
 
 def entry_session_name(entry: dict) -> str:
-    """Return the named-session token users can pass to `/recall restart`."""
+    """Return the named-session token users can pass to the restart command."""
     explicit_name = entry.get('name', '')
     if explicit_name:
         return slugify(str(explicit_name))
@@ -455,7 +456,7 @@ def cmd_save(args):
     print(f"  Role: {role} | Platform: {platform}")
     if prompt_file:
         print(f"  Prompt: {prompt_file}")
-    print(f"\nRun '/recall restart' to see your saved sessions.")
+    print(f"\nRun '{recall_command('restart')}' to see your saved sessions.")
 
 
 # ---------------------------------------------------------------------------
@@ -635,7 +636,7 @@ def _resolve_delete_target(target: str, project_folder: str) -> tuple[dict, str,
 
         if not ordered:
             print("No restart entries found.", file=sys.stderr)
-            print("Use '/recall save' to save a session first.", file=sys.stderr)
+            print(f"Use '{recall_command('save')}' to save a session first.", file=sys.stderr)
             sys.exit(1)
 
         for pos, entry, pf in ordered:
@@ -643,7 +644,7 @@ def _resolve_delete_target(target: str, project_folder: str) -> tuple[dict, str,
                 return entry, pf, str(pos)
 
         print(f"Error: No entry at position {target_pos}.", file=sys.stderr)
-        print(f"Run '/recall restart' to see the current list ({len(ordered)} entries).", file=sys.stderr)
+        print(f"Run '{recall_command('restart')}' to see the current list ({len(ordered)} entries).", file=sys.stderr)
         sys.exit(1)
 
     matches = find_matching_entries(target, project_folder)
@@ -654,7 +655,7 @@ def _resolve_delete_target(target: str, project_folder: str) -> tuple[dict, str,
     if len(matches) > 1:
         print(f"Delete target '{target}' matched {len(matches)} entries:\n")
         _print_match_choices(matches, project_folder)
-        print(f"\nUse '/recall restart delete <number>' or a unique named session token.")
+        print(f"\nUse '{recall_command('restart', 'delete', '<number>')}' or a unique named session token.")
         sys.exit(1)
 
     entry, pf = matches[0]
@@ -673,7 +674,7 @@ def cmd_list(args):
     if not ordered:
         print("No restart entries found.")
         print(f"  Project: {project_folder}")
-        print(f"\nUse '/recall save' to save a session before closing it.")
+        print(f"\nUse '{recall_command('save')}' to save a session before closing it.")
         return
 
     # Build worker_map keyed by internal id for nesting display
@@ -743,11 +744,11 @@ def cmd_list(args):
 
         print()
 
-    print(f"{DIM}Restart with: /recall restart <number>{RESET}")
-    print(f"{DIM}Restart by name: /recall restart <name>{RESET}")
-    print(f"{DIM}Open separate windows with: /recall restart --launch <number>{RESET}")
-    print(f"{DIM}Review compact list: /recall restart summary{RESET}")
-    print(f"{DIM}Delete old prompts: /recall restart delete <number|name>{RESET}")
+    print(f"{DIM}Restart with: {recall_command('restart', '<number>')}{RESET}")
+    print(f"{DIM}Restart by name: {recall_command('restart', '<name>')}{RESET}")
+    print(f"{DIM}Open separate windows with: {recall_command('restart', '--launch', '<number>')}{RESET}")
+    print(f"{DIM}Review compact list: {recall_command('restart', 'summary')}{RESET}")
+    print(f"{DIM}Delete old prompts: {recall_command('restart', 'delete', '<number|name>')}{RESET}")
 
 
 # ---------------------------------------------------------------------------
@@ -762,7 +763,7 @@ def cmd_summary(args):
     if not ordered:
         print("No restart entries found.")
         print(f"  Project: {project_folder}")
-        print(f"\nUse '/recall save' to save a session before closing it.")
+        print(f"\nUse '{recall_command('save')}' to save a session before closing it.")
         return
 
     print(f"{BOLD}Restart Summary{RESET} ({len(ordered)} total)\n")
@@ -783,8 +784,8 @@ def cmd_summary(args):
             print(f"     {summary}")
         print(f"     {DIM}{wd_display}  {prompt_status}{RESET}")
 
-    print(f"\n{DIM}Load: /recall restart <number|name>{RESET}")
-    print(f"{DIM}Delete: /recall restart delete <number|name>{RESET}")
+    print(f"\n{DIM}Load: {recall_command('restart', '<number|name>')}{RESET}")
+    print(f"{DIM}Delete: {recall_command('restart', 'delete', '<number|name>')}{RESET}")
 
 
 # ---------------------------------------------------------------------------
@@ -799,7 +800,7 @@ def cmd_show(args):
 
     if not ordered:
         print("No restart entries found.", file=sys.stderr)
-        print("Use '/recall save' to save a session first.", file=sys.stderr)
+        print(f"Use '{recall_command('save')}' to save a session first.", file=sys.stderr)
         sys.exit(1)
 
     for pos, entry, pf in ordered:
@@ -808,7 +809,7 @@ def cmd_show(args):
             return
 
     print(f"Error: No entry at position {target_pos}.", file=sys.stderr)
-    print(f"Run '/recall restart' to see the current list ({len(ordered)} entries).", file=sys.stderr)
+    print(f"Run '{recall_command('restart')}' to see the current list ({len(ordered)} entries).", file=sys.stderr)
     sys.exit(1)
 
 
@@ -817,14 +818,14 @@ def cmd_show(args):
 # ---------------------------------------------------------------------------
 
 def cmd_launch(args):
-    """Launch a restart entry by its display position (1..N from /recall restart list)."""
+    """Launch a restart entry by its display position from the restart list."""
     target_pos = args.number
     project_folder = get_project_folder()
     ordered = ordered_display_entries(project_folder)
 
     if not ordered:
         print("No restart entries found.", file=sys.stderr)
-        print("Use '/recall save' to save a session first.", file=sys.stderr)
+        print(f"Use '{recall_command('save')}' to save a session first.", file=sys.stderr)
         sys.exit(1)
 
     # Resolve fresh position → entry (same ordering as cmd_list)
@@ -838,7 +839,7 @@ def cmd_launch(args):
 
     if not match:
         print(f"Error: No entry at position {target_pos}.", file=sys.stderr)
-        print(f"Run '/recall restart' to see the current list ({len(ordered)} entries).", file=sys.stderr)
+        print(f"Run '{recall_command('restart')}' to see the current list ({len(ordered)} entries).", file=sys.stderr)
         sys.exit(1)
 
     internal_id = match.get('id')
@@ -887,10 +888,10 @@ def cmd_match(args):
     print(f"Found {len(matches)} matches for '{args.text}':\n")
     _print_match_choices(matches, project_folder)
 
-    print(f"\nUse '/recall restart <name>' to load an exact named session.")
-    print(f"Use '/recall restart <number>' to load a specific entry.")
-    print(f"Use '/recall restart --launch <number>' to open it in a separate window.")
-    print(f"Use '/recall restart delete <number>' to delete an old prompt.")
+    print(f"\nUse '{recall_command('restart', '<name>')}' to load an exact named session.")
+    print(f"Use '{recall_command('restart', '<number>')}' to load a specific entry.")
+    print(f"Use '{recall_command('restart', '--launch', '<number>')}' to open it in a separate window.")
+    print(f"Use '{recall_command('restart', 'delete', '<number>')}' to delete an old prompt.")
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +975,7 @@ def cmd_resume(args):
 
     if not resumable:
         print("No resume tokens saved.")
-        print("Run '/recall save' while inside cmux to capture claude session tokens.")
+        print(f"Run '{recall_command('save')}' while inside cmux to capture session tokens.")
         return
 
     if args.number is None:
@@ -990,7 +991,7 @@ def cmd_resume(args):
             _, ansi = get_theme(get_ticket_ids(text), entry)
             print(f"  {ansi}{i}{RESET}  {summary}")
             print(f"     {DIM}{wd_display}  {date_str}  checkpoint: {checkpoint[:8]}...{RESET}")
-        print(f"\n{DIM}Launch: /recall resume <number>{RESET}")
+        print(f"\n{DIM}Launch: {recall_command('resume', '<number>')}{RESET}")
         return
 
     if args.number < 1 or args.number > len(resumable):

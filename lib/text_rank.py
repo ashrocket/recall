@@ -35,6 +35,33 @@ ACTION_TERMS = {
     "restart", "review", "save", "ship", "test", "update", "verify",
 }
 
+# Phrases that mark a ratified decision rather than routine activity. These
+# are the single most valuable line in a restart prompt, so they get a flat
+# boost independent of message length or term rarity.
+DECISION_RE = re.compile(
+    r"\b(decided|decision|ratified|let'?s go with|going with|settled on|"
+    r"landed on|final answer|the answer is|ship it|merge it|merge the pr|"
+    r"approved|sign(?:ed)? off|confirmed)\b",
+    re.IGNORECASE,
+)
+
+# Pasted terminal chrome (spinner status lines, CLI hint text) that pollutes
+# extractive ranking: it is rare (which TF-IDF rewards) but carries zero
+# session intent. Stripped rather than dropped outright so any real content
+# pasted alongside it in the same message survives.
+_SPINNER_RE = re.compile(
+    r"[\w'’]*(?:…|\.\.\.)\s*\(\s*\d+[hm]\s*\d*[ms]?\s*[·•]\s*[↓↑]\s*[\d.]+k?\s*tokens\)",
+    re.IGNORECASE,
+)
+_TIP_RE = re.compile(r"^[ \t]*tip:[^\n]*$", re.IGNORECASE | re.MULTILINE)
+
+
+def strip_noise(text: str) -> str:
+    """Remove pasted terminal spinner/tip chrome from *text*."""
+    text = _SPINNER_RE.sub(" ", text or "")
+    text = _TIP_RE.sub(" ", text)
+    return text
+
 
 def tokenize(text: str) -> List[str]:
     """Return normalized content tokens."""
@@ -77,7 +104,7 @@ def rank_texts(texts: Sequence[str], limit: int = 5, query_terms: Sequence[str] 
     unique = []
     seen = set()
     for text in texts:
-        cleaned = " ".join((text or "").split())
+        cleaned = " ".join(strip_noise(text or "").split())
         if not cleaned or cleaned in seen:
             continue
         seen.add(cleaned)
@@ -110,6 +137,8 @@ def rank_texts(texts: Sequence[str], limit: int = 5, query_terms: Sequence[str] 
         # Prefer compact, information-dense snippets. Long transcript chunks
         # should not crowd out a precise request.
         score = score / math.sqrt(len(tokens))
+        if DECISION_RE.search(unique[index]):
+            score += 3.0
         scored.append((score, -index, unique[index]))
 
     ranked = sorted(scored, reverse=True)

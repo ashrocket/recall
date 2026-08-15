@@ -20,25 +20,15 @@ def test_unique_llm_prompt_path_adds_llm_suffix(tmp_path):
     mod = _import_recall_save_eval()
     local = tmp_path / "fix-auth.prompt"
     local.write_text("local")
-    result = mod.unique_llm_prompt_path(str(local))
-    assert result == tmp_path / "fix-auth.llm.prompt"
+    assert mod.unique_llm_prompt_path(str(local)) == tmp_path / "fix-auth.llm.prompt"
 
 
 def test_build_log_entry_records_prompt_stats(tmp_path):
     mod = _import_recall_save_eval()
-    local = tmp_path / "local.prompt"
-    llm = tmp_path / "llm.prompt"
+    local, llm = tmp_path / "local.prompt", tmp_path / "llm.prompt"
     local.write_text("local restart prompt")
     llm.write_text("llm restart prompt with more detail")
-
-    entry = mod.build_log_entry(
-        working_dir="/tmp/app",
-        local_prompt=str(local),
-        llm_prompt=str(llm),
-        winner="llm",
-        reason="More specific next steps.",
-    )
-
+    entry = mod.build_log_entry(working_dir="/tmp/app", local_prompt=str(local), llm_prompt=str(llm), winner="llm", reason="More specific next steps.")
     assert entry["winner"] == "llm"
     assert entry["judge"] == "llm"
     assert entry["local"]["words"] == 3
@@ -47,58 +37,33 @@ def test_build_log_entry_records_prompt_stats(tmp_path):
 
 def test_append_log_writes_jsonl(tmp_path):
     mod = _import_recall_save_eval()
-    entry = {"winner": "tie"}
     with mock.patch.object(mod, "get_project_dir", return_value=tmp_path):
-        path = mod.append_log("proj", entry)
-
+        path = mod.append_log("proj", {"winner": "tie"})
     assert path == tmp_path / "recall-save-evals.jsonl"
-    lines = path.read_text().splitlines()
-    assert json.loads(lines[0])["winner"] == "tie"
+    assert json.loads(path.read_text()) == {"winner": "tie"}
 
 
 def test_registry_prompt_value_stores_project_relative_paths(tmp_path):
     mod = _import_recall_save_eval()
     prompt = tmp_path / "recall-restarts" / "fix-auth.llm.prompt"
-
     with mock.patch.object(mod, "get_project_dir", return_value=tmp_path):
-        value = mod.registry_prompt_value("proj", str(prompt))
-
-    assert value == "recall-restarts/fix-auth.llm.prompt"
+        assert mod.registry_prompt_value("proj", str(prompt)) == "recall-restarts/fix-auth.llm.prompt"
 
 
 def test_promote_llm_winner_updates_matching_agent_prompt(tmp_path):
     mod = _import_recall_save_eval()
-    agents = [
-        {"id": 1, "prompt_file": "recall-restarts/fix-auth.prompt"},
-        {"id": 2, "prompt_file": "recall-restarts/other.prompt"},
-    ]
-    local = tmp_path / "recall-restarts" / "fix-auth.prompt"
-    llm = tmp_path / "recall-restarts" / "fix-auth.llm.prompt"
-    saved = []
-
-    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), \
-         mock.patch.object(mod, "load_agents", return_value=agents), \
-         mock.patch.object(mod, "save_agents", side_effect=lambda updated, project: saved.extend(updated)):
-        changed = mod.promote_llm_winner("proj", str(local), str(llm))
-
+    agents = [{"id": 1, "prompt_file": "recall-restarts/fix-auth.prompt"}, {"id": 2, "prompt_file": "recall-restarts/other.prompt"}]
+    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), mock.patch.object(mod, "load_agents", return_value=agents), mock.patch.object(mod, "save_agents") as save_agents:
+        changed = mod.promote_llm_winner("proj", str(tmp_path / "recall-restarts/fix-auth.prompt"), str(tmp_path / "recall-restarts/fix-auth.llm.prompt"))
     assert changed == 1
     assert agents[0]["prompt_file"] == "recall-restarts/fix-auth.llm.prompt"
     assert agents[1]["prompt_file"] == "recall-restarts/other.prompt"
-    assert saved[0]["prompt_file"] == "recall-restarts/fix-auth.llm.prompt"
+    save_agents.assert_called_once()
 
 
 def test_promote_llm_winner_leaves_registry_when_no_match(tmp_path):
     mod = _import_recall_save_eval()
-    agents = [{"id": 1, "prompt_file": "recall-restarts/other.prompt"}]
-
-    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), \
-         mock.patch.object(mod, "load_agents", return_value=agents), \
-         mock.patch.object(mod, "save_agents") as save_agents:
-        changed = mod.promote_llm_winner(
-            "proj",
-            str(tmp_path / "recall-restarts" / "fix-auth.prompt"),
-            str(tmp_path / "recall-restarts" / "fix-auth.llm.prompt"),
-        )
-
+    with mock.patch.object(mod, "get_project_dir", return_value=tmp_path), mock.patch.object(mod, "load_agents", return_value=[{"id": 1, "prompt_file": "recall-restarts/other.prompt"}]), mock.patch.object(mod, "save_agents") as save_agents:
+        changed = mod.promote_llm_winner("proj", str(tmp_path / "recall-restarts/fix-auth.prompt"), str(tmp_path / "recall-restarts/fix-auth.llm.prompt"))
     assert changed == 0
     save_agents.assert_not_called()

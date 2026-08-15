@@ -504,6 +504,59 @@ def test_save_restart_canonicalizes_nested_git_cwd_to_repo_root(tmp_path):
     assert f"`cd {repo}`" in prompt_path.read_text()
 
 
+def test_save_restart_derives_filename_slug_from_given_name(tmp_path):
+    """`save <name>` should name the file after <name>, not the session
+    summary/title slug -- otherwise the file on disk never matches the name
+    the caller was told to remember."""
+    mod = _import_recall_save()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    prompt_path = tmp_path / "project" / "recall-restarts" / "checkpoint.prompt"
+    prompt_path.parent.mkdir(parents=True)
+    slugs = []
+
+    def fake_unique_prompt_path(project_folder, slug):
+        slugs.append(slug)
+        return prompt_path
+
+    with mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "latest_session", return_value=("sid", {"summary": "figma session recap"}, {"summary": "figma session recap"})), \
+         mock.patch.object(mod, "git_snapshot", return_value={"branch": "main", "status": "", "status_available": True, "log": ""}), \
+         mock.patch.object(mod, "unique_prompt_path", side_effect=fake_unique_prompt_path), \
+         mock.patch.object(mod, "current_claude_session_id", return_value=""), \
+         mock.patch.object(mod, "registration_platform", return_value="codex"), \
+         mock.patch.object(mod, "register_restart", return_value="Saved"), \
+         mock.patch.object(mod, "cmux_register_recall", return_value=""):
+        mod.save_restart(str(repo), platform="none", skip_index=True, name="figma-palette-muted-text")
+
+    assert slugs == ["figma-palette-muted-text"]
+
+
+def test_save_restart_falls_back_to_summary_slug_without_name(tmp_path):
+    mod = _import_recall_save()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    prompt_path = tmp_path / "project" / "recall-restarts" / "checkpoint.prompt"
+    prompt_path.parent.mkdir(parents=True)
+    slugs = []
+
+    def fake_unique_prompt_path(project_folder, slug):
+        slugs.append(slug)
+        return prompt_path
+
+    with mock.patch.object(mod, "get_project_folders", return_value=("repo", "repo")), \
+         mock.patch.object(mod, "latest_session", return_value=("sid", {"summary": "figma session recap"}, {"summary": "figma session recap"})), \
+         mock.patch.object(mod, "git_snapshot", return_value={"branch": "main", "status": "", "status_available": True, "log": ""}), \
+         mock.patch.object(mod, "unique_prompt_path", side_effect=fake_unique_prompt_path), \
+         mock.patch.object(mod, "current_claude_session_id", return_value=""), \
+         mock.patch.object(mod, "registration_platform", return_value="codex"), \
+         mock.patch.object(mod, "register_restart", return_value="Saved"), \
+         mock.patch.object(mod, "cmux_register_recall", return_value=""):
+        mod.save_restart(str(repo), platform="none", skip_index=True)
+
+    assert slugs == [mod.slug_from_text("figma session recap", fallback=repo.name)]
+
+
 class TestResolveRestartName:
     def test_explicit_name_wins(self, tmp_path):
         mod = _import_recall_save()

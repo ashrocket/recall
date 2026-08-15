@@ -17,6 +17,7 @@ from pathlib import Path
 # Add lib to path
 LIB_DIR = Path(__file__).resolve().parent.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
+sys.path.insert(0, str(LIB_DIR.parent))
 
 from knowledge import (
     get_pending_learnings,
@@ -29,6 +30,71 @@ from knowledge import (
     BUCKETS,
     DEFAULT_BUCKET,
 )
+from lib.platform import recall_command
+
+
+def _project_cwd() -> str:
+    """The project directory this invocation is acting on.
+
+    Claude Code sets ``CLAUDE_PROJECT_DIR``; the dispatcher sets it too. Falling
+    back to the process cwd matches how ``get_project_folder`` resolves, so the
+    index read and the memory write always agree on which project they mean.
+    """
+    return os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
+
+
+def promote_to_native_memory(project_folder: str, cwd: str = None):
+    """Mirror approved learnings into Claude Code's native memory directory.
+
+    Approval is the right moment to promote: it is the one point where the user
+    has explicitly blessed a learning, which keeps recall from writing anything
+    unreviewed into a file that loads on every future session. Promotion is
+    strictly best-effort — a failure here must never cost the user their
+    approval, which is already saved to the index by this point.
+
+    *cwd* names the project being operated on, so approving learnings for one
+    project can never write into another project's memory directory.
+
+    Off unless the project has opted in with ``/recall memory enable``, and it
+    will not create a memory directory that does not already exist: writing
+    into Claude Code's config tree is not a reasonable side effect of a
+    command the user ran to approve a learning.
+    """
+    try:
+        from lib import native_memory
+        from knowledge import load_index
+        from sops import load_sops
+
+        if not native_memory.is_enabled():
+            return None
+        if not native_memory.auto_promote_enabled(load_index(project_folder)):
+            return None
+
+        learnings = [l for l in get_learnings(project_folder) if isinstance(l, dict)]
+        try:
+            sops = native_memory.normalize_sops(load_sops())
+        except Exception:
+            sops = {}
+        return native_memory.sync(learnings, sops, cwd=cwd, create=False)
+    except Exception:
+        return None
+
+
+def _report_promotion(result) -> None:
+    """Print a one-line summary of what promotion changed, if anything."""
+    if result is None or not getattr(result, "changed", False):
+        return
+    print()
+    print(f"Promoted to native memory: {len(result.written)} written, "
+          f"{len(result.removed)} removed.")
+    print("These load automatically at the start of every session in this project.")
+
+    # Quality-gate rejections are routine and expected; only flag the ones that
+    # mean something went wrong.
+    blocked = [i for i in result.skipped if i.get("reason") != "not_durable"]
+    if blocked:
+        print(f"{len(blocked)} not written — run "
+              f"`{recall_command('memory', 'sync')}` for detail.")
 
 
 def format_learning(learning: dict, index: int) -> str:
@@ -82,7 +148,7 @@ def show_pending(project_folder: str):
         print()
         print()
         if approved:
-            print(f"You have {len(approved)} approved learnings. Use `/recall failures` to view them.")
+            print(f"You have {len(approved)} approved learnings. Use `{recall_command('failures')}` to view them.")
         return
 
     # Group pending by bucket for display
@@ -116,9 +182,9 @@ def show_pending(project_folder: str):
 
     print("---")
     print("**Actions:**")
-    print("  `/recall learn --batch` - Accept all pending learnings")
-    print("  `/recall learn --approve 0` - Approve learning #0")
-    print("  `/recall learn --reject 0` - Reject learning #0")
+    print(f"  `{recall_command('learn', '--batch')}` - Accept all pending learnings")
+    print(f"  `{recall_command('learn', '--approve', '0')}` - Approve learning #0")
+    print(f"  `{recall_command('learn', '--reject', '0')}` - Reject learning #0")
 
 
 def batch_approve(project_folder: str):
@@ -127,7 +193,8 @@ def batch_approve(project_folder: str):
     if count > 0:
         print(f"## Approved {count} learnings")
         print()
-        print("These will now appear in `/recall failures` and session start context.")
+        print(f"These will now appear in `{recall_command('failures')}` and session-start context.")
+        _report_promotion(promote_to_native_memory(project_folder, cwd=_project_cwd()))
     else:
         print("No pending learnings to approve.")
 
@@ -143,6 +210,7 @@ def approve_one(project_folder: str, index_str: str):
     learning = approve_learning(idx, project_folder)
     if learning:
         print(f"Approved: [{learning.get('category')}] {learning.get('title')}")
+        _report_promotion(promote_to_native_memory(project_folder, cwd=_project_cwd()))
     else:
         print(f"No pending learning at index {idx}")
 
@@ -162,8 +230,51 @@ def reject_one(project_folder: str, index_str: str):
         print(f"No pending learning at index {idx}")
 
 
+def prune_approved(project_folder: str, confirmed: bool = False):
+    """Drop already-approved learnings that cannot state a reusable rule.
+
+    The proposal gate only guards new learnings. Indexes written before it
+    existed still hold incident records — "Recurring general errors (3x)" and
+    verbatim command substitutions — which clutter `/recall failures` and the
+    session-start context forever. This is the cleanup path for those.
+    """
+    from lib.learning_quality import is_durable
+    from lib.shared import save_index
+    from knowledge import load_index
+
+    index = load_index(project_folder)
+    approved = [l for l in index.get('learnings', []) if isinstance(l, dict)]
+
+    keep, drop = [], []
+    for learning in approved:
+        ok, reason = is_durable(learning)
+        (keep if ok else drop).append(learning if ok else (learning, reason))
+
+    print("## Prune approved learnings")
+    print()
+    if not drop:
+        print(f"All {len(keep)} approved learnings state a usable rule. Nothing to prune.")
+        return 0
+
+    print(f"**{len(drop)} of {len(approved)}** carry no reusable rule:")
+    print()
+    for learning, reason in drop:
+        print(f"  · {learning.get('title', '(untitled)')} — {reason}")
+
+    if not confirmed:
+        print()
+        print("These are still visible in the index. Re-run with `--yes` to remove them:")
+        print(f"  `{recall_command('learn', '--prune', '--yes')}`")
+        return 0
+
+    index['learnings'] = keep
+    save_index(index, project_folder)
+    print()
+    print(f"Removed {len(drop)}. {len(keep)} approved learnings remain.")
+    return 0
+
+
 def main():
-    cwd = os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
     project_folder = get_project_folder()
 
     args = sys.argv[1:]
@@ -176,6 +287,8 @@ def main():
         approve_one(project_folder, args[1])
     elif args[0] == '--reject' and len(args) > 1:
         reject_one(project_folder, args[1])
+    elif args[0] == '--prune':
+        prune_approved(project_folder, confirmed='--yes' in args[1:])
     else:
         show_pending(project_folder)
 

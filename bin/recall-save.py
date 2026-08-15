@@ -594,7 +594,19 @@ def save_restart(working_dir: str, platform: str = "auto", skip_index: bool = Fa
     else:
         session_id, summary_entry, details = "", {}, {}
     summary = details.get("summary") or summary_entry.get("summary") or Path(working_dir).name
-    slug = slug_from_text(summary, fallback=Path(working_dir).name)
+
+    entry_platform = registration_platform(working_dir, platform, claude_session_id=resume_checkpoint)
+    transcript_path = (
+        find_current_claude_transcript(working_dir, session_id=resume_checkpoint)
+        if entry_platform == "claude"
+        else None
+    )
+    resolved_name = resolve_restart_name(name, entry_platform, transcript_path)
+
+    # Prefer the given/resolved display name for the filename so the file an
+    # agent finds on disk matches the name it was told to remember, rather
+    # than a slug derived from the session title/summary.
+    slug = slug_from_text(resolved_name or summary, fallback=Path(working_dir).name)
     git_info = git_snapshot(working_dir)
     prompt = build_restart_prompt(
         working_dir=working_dir,
@@ -605,13 +617,6 @@ def save_restart(working_dir: str, platform: str = "auto", skip_index: bool = Fa
     )
     prompt_path = unique_prompt_path(project_folder, slug)
     prompt_path.write_text(prompt)
-    entry_platform = registration_platform(working_dir, platform, claude_session_id=resume_checkpoint)
-    transcript_path = (
-        find_current_claude_transcript(working_dir, session_id=resume_checkpoint)
-        if entry_platform == "claude"
-        else None
-    )
-    resolved_name = resolve_restart_name(name, entry_platform, transcript_path)
     registration_output = register_restart(
         working_dir,
         summary,

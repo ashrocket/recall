@@ -1,19 +1,28 @@
 ---
 name: recall
 description: Use when searching local recall session memory, saving or restarting checkpoints, showing recurring failures, or reviewing pending learnings.
-version: 3.4.1
+version: 3.4.2
 ---
 
 # recall — fast dispatch
 
 Do not reason over session history in-model. Dispatch to local scripts and show their output.
 
+## Codex invocation
+
+In Codex, this skill is invoked as `$recall`, not `/recall`. Treat `$ARGUMENTS`
+as the text after `$recall`; never tell a Codex user to type a slash command.
+
 ## Routes
 
+- `jobs*`: run `RECALL_ROOT/bin/recall "$PWD" jobs $ARGUMENTS`. Use `jobs
+  status` to inspect pending/running/completed/failed indexing jobs and `jobs
+  drain` as the portable recovery path. A plugin cache must not install the
+  macOS daemon; only a stable `~/.recall` source installation may do that.
 - `save*`: read `skills/recall/procedures/save.md`; pass everything after `save` as `$ARGUMENTS` (an optional restart name).
 - `restart*`: read `skills/recall/procedures/restart.md`; pass everything after `restart` as `$ARGUMENTS`.
 - `learn*`: read `skills/recall/procedures/learn.md`; pass everything after `learn` as `$ARGUMENTS`.
-- everything else (`help`, empty, `list`, `last`, `failures`, `stats`, `cleanup`, `knowledge`, or an arbitrary search term / slash-delimited regex):
+- everything else (`help`, empty, `list`, `last`, `failures`, `memory`, `stats`, `cleanup`, `knowledge`, or an arbitrary search term / slash-delimited regex):
 
 ```bash
 RECALL_ROOT=${CLAUDE_PLUGIN_ROOT:-}
@@ -28,7 +37,7 @@ if [ -z "$RECALL_ROOT" ]; then
   echo "Could not locate a recall installation" >&2
   exit 1
 fi
-exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
+RECALL_AGENT=codex exec "$RECALL_ROOT/bin/recall" "$PWD" $ARGUMENTS
 ```
 
 `bin/recall` uses the compiled Rust fast path when available and falls back to Python for unsupported or uncompiled paths.
