@@ -67,6 +67,9 @@ def _atomic_details(project_folder: str, session_id: str, data: dict):
         json.dump(_details(data), handle, indent=2, default=str)
         handle.flush()
         os.fsync(handle.fileno())
+    # Full session details (messages, commands) can hold pasted secrets;
+    # lock the file down before it lands at its final, discoverable name.
+    os.chmod(temp, 0o600)
     os.replace(temp, target)
 
 

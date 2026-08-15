@@ -32,6 +32,10 @@ def atomic_write_json(path: Path, data, **json_kwargs) -> None:
     try:
         with open(tmp_path, 'w') as f:
             json.dump(data, f, **json_kwargs)
+        # Session/learning data can include pasted secrets or private code.
+        # Lock the file down before it's visible at its final name instead of
+        # leaving it at the process umask's default (often world-readable).
+        os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, path)
     finally:
         # If json.dump (or the replace) raised, drop the partial temp file
