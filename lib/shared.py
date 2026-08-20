@@ -47,6 +47,28 @@ def atomic_write_json(path: Path, data, **json_kwargs) -> None:
                 pass
 
 
+def atomic_write_text(path: Path, content: str) -> None:
+    """Write text to *path* atomically via a temp file + rename.
+
+    Same rationale as ``atomic_write_json``: a plain ``write_text`` truncates
+    the target immediately, so a crash mid-write can corrupt a file that may
+    hold content recall does not own (e.g. a user's own notes alongside
+    recall's in a shared Markdown file such as MEMORY.md).
+    """
+    path = Path(path)
+    tmp_path = path.parent / f".{path.name}.tmp{os.getpid()}"
+    try:
+        with open(tmp_path, 'w') as f:
+            f.write(content)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------

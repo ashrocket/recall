@@ -163,9 +163,16 @@ def group_by_project(entries: list[dict], scope: Path) -> dict[str, list[dict]]:
 
 
 def deduplicate_ids(agents: list[dict]) -> list[dict]:
-    """Reassign IDs where duplicates exist, preserving lead_id references."""
+    """Reassign IDs where duplicates exist.
+
+    This only renumbers the colliding entry's own ``id`` — it does NOT
+    rewrite any other entry's ``lead_id``/``workers`` reference that pointed
+    at the old id, because with more than one colliding entry there is no
+    reliable way to tell which one a given reference meant. Any renumbering
+    is printed so a lead/worker relationship that crossed a collision can be
+    fixed up by hand; leaving it silently unlinked would be worse.
+    """
     seen = {}
-    remapped = {}  # old_id -> new_id for entries that were renumbered
 
     # First pass: find the max existing ID
     max_id = max((e.get('id', 0) for e in agents), default=0)
@@ -174,7 +181,11 @@ def deduplicate_ids(agents: list[dict]) -> list[dict]:
         eid = entry['id']
         if eid in seen:
             max_id += 1
-            remapped[id(entry)] = max_id  # use object id to track this specific entry
+            print(
+                f"    NOTE: id collision — entry '{entry.get('summary', '')[:40]}' "
+                f"renumbered {eid} -> {max_id}; check any lead_id/workers "
+                f"references to the old id {eid}"
+            )
             entry['id'] = max_id
         else:
             seen[eid] = True

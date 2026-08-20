@@ -8,7 +8,11 @@ This keeps the index under Claude's Read tool token limit.
 """
 
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from lib.shared import atomic_write_json
 
 VERSION_FROM = "1.0.0"
 VERSION_TO = "1.1.0"
@@ -76,8 +80,7 @@ def migrate() -> bool:
                     }
 
                     details_file = details_dir / f"{session_id}.json"
-                    with open(details_file, 'w') as f:
-                        json.dump(details, f, indent=2, default=str)
+                    atomic_write_json(details_file, details, indent=2, default=str)
 
                     # Slim down session in index
                     first_msgs = [
@@ -102,8 +105,10 @@ def migrate() -> bool:
             index['version'] = 3
             index['sessions'] = sessions
 
-            with open(index_file, 'w') as f:
-                json.dump(index, f, indent=2, default=str)
+            # Atomic write: this index holds every migrated (and not-yet-
+            # migrated) session for the project. A crash mid-write here must
+            # not truncate/corrupt the whole file — a plain open('w') would.
+            atomic_write_json(index_file, index, indent=2, default=str)
 
         except Exception as e:
             print(f"Error migrating {index_file}: {e}")

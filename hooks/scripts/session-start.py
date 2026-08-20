@@ -232,7 +232,7 @@ def format_session_context(index: dict, sorted_sessions: list) -> str:
     return format_compact_context(index, sorted_sessions)
 
 
-def main():
+def _main():
     # Get project path — resolve worktrees to main repo for shared index
     cwd = os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
     if len(sys.argv) > 1:
@@ -260,7 +260,13 @@ def main():
                 pass
         sys.exit(0)
 
-    sessions = index.get('sessions', {})
+    # A corrupted or unexpectedly-shaped index (e.g. session entries that
+    # aren't dicts) must not crash the hook — skip the malformed ones rather
+    # than raising out of a SessionStart hook that runs on every session.
+    sessions = {
+        sid: summary for sid, summary in index.get('sessions', {}).items()
+        if isinstance(summary, dict)
+    }
     # Sort sessions by date
     sorted_sessions = sorted(
         sessions.items(),
@@ -273,6 +279,19 @@ def main():
         sys.exit(0)
 
     print(format_session_context(index, sorted_sessions))
+
+
+def main():
+    # This hook runs on every session start; an uncaught exception here would
+    # print a traceback (and non-zero exit) on every future session for the
+    # affected project, so never let anything escape besides sys.exit().
+    try:
+        _main()
+    except SystemExit:
+        raise
+    except Exception:
+        sys.exit(0)
+
 
 if __name__ == '__main__':
     main()

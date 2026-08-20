@@ -314,8 +314,16 @@ def main():
     # unavailable in the current sandbox or runtime environment.
     save_session_details(project_folder, session_data["session_id"], session_data)
 
-    # Update index
+    # Update index. A corrupted or unexpectedly-shaped index on disk (e.g.
+    # from manual edits or a bug elsewhere) must not crash this hook, which
+    # runs automatically for every Codex session — normalize its shape first.
     index = load_index(project_folder, create_if_missing=True)
+    if not isinstance(index, dict):
+        index = {}
+    if not isinstance(index.get("sessions"), dict):
+        index["sessions"] = {}
+    if not isinstance(index.get("failure_patterns"), dict):
+        index["failure_patterns"] = {}
     index["sessions"][session_data["session_id"]] = create_session_summary(session_data)
 
     for pattern, failures in session_data["failure_patterns"].items():

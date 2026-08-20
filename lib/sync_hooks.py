@@ -34,6 +34,17 @@ def maybe_sync_push(data_dir: Path = None) -> Optional[dict]:
             if len(clean_files) < len(files):
                 print(f"  sync: {len(files) - len(clean_files)} files blocked by secret scan", file=sys.stderr)
             files = clean_files
+        elif config.secret_scan == "warn":
+            # "warn" must actually warn — previously findings were computed
+            # and silently discarded, so a leaked secret would sync out with
+            # no indication to the user. Never print the match itself here.
+            flagged = [f for f in files if f["secret_findings"]]
+            if flagged:
+                print(
+                    f"  sync: {len(flagged)} file(s) may contain secrets and were pushed anyway "
+                    f"(set secret_scan: strict in sync.yaml to block instead)",
+                    file=sys.stderr,
+                )
 
         result = provider.push(files, config)
         if result["pushed"] > 0:

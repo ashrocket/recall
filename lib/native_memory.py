@@ -59,6 +59,7 @@ from typing import List, Optional
 try:
     from lib.platform import Platform, detect_platform
     from lib.sync_scan import scan_for_secrets
+    from lib.shared import atomic_write_text
     from lib.learning_quality import (
         MIN_GUIDANCE_LEN,
         TEMPLATE_PREFIXES,
@@ -70,6 +71,7 @@ try:
 except ImportError:
     from platform import Platform, detect_platform
     from sync_scan import scan_for_secrets
+    from shared import atomic_write_text
     from learning_quality import (
         MIN_GUIDANCE_LEN,
         TEMPLATE_PREFIXES,
@@ -1022,7 +1024,7 @@ def sync(
             continue
 
         target.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        atomic_write_text(path, content)
         result.written.append(doc.filename)
 
     if prune and target.is_dir():
@@ -1064,7 +1066,7 @@ def sync(
     updated = render_index(existing, landed, target)
     if updated != existing:
         target.mkdir(parents=True, exist_ok=True)
-        idx.write_text(updated)
+        atomic_write_text(idx, updated)
         result.index_updated = True
 
     return result

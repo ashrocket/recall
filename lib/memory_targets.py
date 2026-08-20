@@ -23,8 +23,10 @@ from typing import List, Optional
 
 try:
     from lib.native_memory import MemoryDoc, build_docs
+    from lib.shared import atomic_write_text
 except ImportError:
     from native_memory import MemoryDoc, build_docs
+    from shared import atomic_write_text
 
 
 #: Fence markers. Chosen to be invisible in rendered markdown, so a user
@@ -86,6 +88,12 @@ def render_region(docs: List[MemoryDoc], budget: int = DEFAULT_REGION_BUDGET):
 
     for doc in docs:
         entry = f"- **{doc.title}** — {doc.description}\n  {_one_line_body(doc)}"
+        # A learning's title/description ultimately comes from session
+        # transcript text. If it happened to contain a literal fence marker,
+        # embedding it verbatim would prematurely close (or reopen) recall's
+        # region on the next sync and desync the fenced block from what
+        # apply_region() thinks it owns. Strip the markers defensively.
+        entry = entry.replace(REGION_START, "").replace(REGION_END, "")
         cost = len(entry) + 1
         if used + cost > budget:
             truncated += 1
@@ -179,9 +187,9 @@ def sync_region(
 
     if not updated.strip():
         # recall's block was the only thing in a file recall created.
-        path.write_text("")
+        atomic_write_text(path, "")
     else:
-        path.write_text(updated)
+        atomic_write_text(path, updated)
 
     result.written = bool(region)
     result.removed = not region and _REGION_RE.search(existing) is not None

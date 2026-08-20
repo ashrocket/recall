@@ -14,6 +14,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from lib.shared import atomic_write_json
+
 
 BUCKETS_CONFIG_PATH = Path.home() / ".claude" / "recall-buckets.json"
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
@@ -97,8 +100,10 @@ def main():
         return
 
     BUCKETS_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(BUCKETS_CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=2)
+    # Atomic write: a crash mid-write must never leave a truncated config
+    # that load_existing_config() would silently treat as "no config" on the
+    # next run, discarding the user's existing bucket assignments.
+    atomic_write_json(BUCKETS_CONFIG_PATH, config, indent=2)
 
     print()
     if existing:
