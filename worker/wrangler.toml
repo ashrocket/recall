@@ -28,5 +28,5 @@ id = "e8f4f6e83f5a4325a0cb277452f21138"
 [[d1_databases]]
 binding = "DB"
 database_name = "recall-memory"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "a15b78a4-d73a-4916-87e4-26b85a906d1a"
 migrations_dir = "migrations"
