@@ -20,3 +20,13 @@ bucket_name = "recall-store"
 [[kv_namespaces]]
 binding = "KV"
 id = "e8f4f6e83f5a4325a0cb277452f21138"
+
+# Memory stores. Create with:
+#   wrangler d1 create recall-memory
+# then paste the returned database_id below and apply the schema:
+#   wrangler d1 migrations apply recall-memory --remote
+[[d1_databases]]
+binding = "DB"
+database_name = "recall-memory"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
