@@ -4,6 +4,12 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
+@pytest.fixture(autouse=True)
+def _isolate_sync_state(tmp_path, monkeypatch):
+    """Keep optimistic-concurrency state out of the developer's real home dir."""
+    monkeypatch.setenv("RECALL_STATE_DIR", str(tmp_path / "sync-state"))
+
+
 def test_cloud_provider_push(tmp_path):
     from lib.sync_cloud import CloudProvider
     from lib.sync_config import SyncConfig
