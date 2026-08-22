@@ -46,6 +46,7 @@ declaration with the tradeoff spelled out, for when org stores become reachable.
 """
 
 import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -122,7 +123,49 @@ def _env_flag(name: str) -> Optional[bool]:
     return None
 
 
-def is_enabled() -> bool:
+def _claude_config_dir() -> Path:
+    """The Claude Code config root — ``CLAUDE_CONFIG_DIR`` or ``~/.claude``."""
+    configured = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    return Path(configured).expanduser() if configured else Path.home() / ".claude"
+
+
+def _read_bool_setting(path: Path, key: str):
+    """Return ``path``'s ``key`` if it is a bool, else ``None`` (missing/unreadable)."""
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    value = data.get(key) if isinstance(data, dict) else None
+    return value if isinstance(value, bool) else None
+
+
+def auto_memory_setting(cwd: str = None):
+    """Return Claude Code's ``autoMemoryEnabled`` setting, or ``None`` if unset.
+
+    Claude Code's product toggle (``/memory``) writes this key with no env var
+    set, and recall must honour it or it promotes into a directory the user
+    told Claude Code not to read. Read down the settings ladder with the
+    closest scope winning — project-local over project over user — matching
+    Claude Code's own precedence.
+    """
+    value = _read_bool_setting(_claude_config_dir() / "settings.json", "autoMemoryEnabled")
+
+    root = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    for parent in [Path(root), *Path(root).parents]:
+        claude_dir = parent / ".claude"
+        if not claude_dir.is_dir():
+            continue
+        proj = _read_bool_setting(claude_dir / "settings.json", "autoMemoryEnabled")
+        if proj is not None:
+            value = proj
+        local = _read_bool_setting(claude_dir / "settings.local.json", "autoMemoryEnabled")
+        if local is not None:
+            value = local
+        break  # nearest project directory wins; do not keep climbing
+    return value
+
+
+def is_enabled(cwd: str = None) -> bool:
     """Return whether recall should promote into the native memory directory.
 
     Codex has no per-project auto-memory directory, so promoting from a Codex
@@ -131,9 +174,23 @@ def is_enabled() -> bool:
     like when the user runs ``recall`` directly, and the target directory is
     still Claude Code's.
 
-    ``RECALL_NATIVE_MEMORY=0`` opts out, and recall stays out of the way when
-    the user has already disabled auto-memory via
-    ``CLAUDE_CODE_DISABLE_AUTO_MEMORY``.
+    Beyond recall's own ``RECALL_NATIVE_MEMORY=0`` opt-out, this mirrors Claude
+    Code's auto-memory gate in its own precedence order, for the parts a
+    subprocess can observe:
+
+    * ``CLAUDE_CODE_DISABLE_AUTO_MEMORY`` is tri-state. A truthy value disables.
+      A *falsey* value (``=0``/``false``) is an explicit **force-enable** that
+      wins over the settings toggle below — mirroring the binary, where the
+      force-enable branch short-circuits before ``autoMemoryEnabled`` is read.
+      Getting this precedence wrong would invert the bug onto users who opted
+      in, so it is tested directly.
+    * ``autoMemoryEnabled: false`` in settings disables, with no env var set.
+      This is the silent data-loss case the gate exists to catch.
+
+    Not observable from a subprocess, so deliberately not checked: the
+    in-session ``/memory`` toggle, safe mode, and the model-dependent remote
+    disable. In those states recall may over-promote; it can never wrongly
+    suppress, which is the safe direction to err.
     """
     if _env_flag("RECALL_NATIVE_MEMORY") is False:
         return False
@@ -141,7 +198,15 @@ def is_enabled() -> bool:
         return False
     if detect_platform() == Platform.CODEX:
         return False
-    if _env_flag("CLAUDE_CODE_DISABLE_AUTO_MEMORY"):
+
+    disable = _env_flag("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+    if disable is True:
+        return False
+    if disable is False:
+        return True  # explicit force-enable wins over the settings toggle
+    if os.environ.get("CLAUDE_CODE_SIMPLE", "").strip():
+        return False
+    if auto_memory_setting(cwd) is False:
         return False
     return True
 

@@ -74,6 +74,109 @@ def test_index_injection_suppressed_by_store_declaration(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# The autoMemoryEnabled settings gate
+#
+# The product's /memory toggle writes autoMemoryEnabled into settings with no
+# env var set. Missing that key meant recall promoted into a directory the user
+# told Claude Code not to read — silent data loss in shipped code. These tests
+# are the merge gate for the fix; the precedence one is the trap.
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+
+def _clear_memory_env(monkeypatch):
+    for var in ("RECALL_NATIVE_MEMORY", "RECALL_AGENT",
+                "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "CLAUDE_CODE_SIMPLE",
+                "CODEX_VERSION", "CLAUDE_PROJECT_DIR"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def _write_user_setting(config_dir, **keys):
+    (config_dir / "settings.json").write_text(_json.dumps(keys))
+
+
+def test_settings_toggle_off_disables_promotion(monkeypatch, isolate_claude_config_dir):
+    """The actual bug: toggle off in settings, no env var, must disable."""
+    _clear_memory_env(monkeypatch)
+    _write_user_setting(isolate_claude_config_dir, autoMemoryEnabled=False)
+    assert nm.is_enabled() is False
+
+
+def test_force_enable_env_wins_over_settings_toggle(monkeypatch, isolate_claude_config_dir):
+    """THE TRAP. `=0` is an explicit force-enable that must beat autoMemoryEnabled:false.
+
+    A naive "read the setting and return it" inverts the original bug onto every
+    user who opted back in via the env var. This is why the fix ships with a test.
+    """
+    _clear_memory_env(monkeypatch)
+    _write_user_setting(isolate_claude_config_dir, autoMemoryEnabled=False)
+    monkeypatch.setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "0")
+    assert nm.is_enabled() is True
+
+
+def test_explicit_env_disable_still_wins(monkeypatch, isolate_claude_config_dir):
+    """Regression guard: the pre-existing env disable must keep working."""
+    _clear_memory_env(monkeypatch)
+    _write_user_setting(isolate_claude_config_dir, autoMemoryEnabled=True)
+    monkeypatch.setenv("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
+    assert nm.is_enabled() is False
+
+
+def test_absent_setting_defaults_to_enabled(monkeypatch, isolate_claude_config_dir):
+    """No env var, no settings key — Claude Code's default is on, so is recall's."""
+    _clear_memory_env(monkeypatch)
+    assert nm.auto_memory_setting() is None
+    assert nm.is_enabled() is True
+
+
+def test_project_scope_overrides_user_scope(monkeypatch, isolate_claude_config_dir, tmp_path):
+    """The sweep confirmed project scope IS honored for this key — closest wins."""
+    _clear_memory_env(monkeypatch)
+    _write_user_setting(isolate_claude_config_dir, autoMemoryEnabled=True)
+    proj = tmp_path / "repo"
+    (proj / ".claude").mkdir(parents=True)
+    (proj / ".claude" / "settings.json").write_text(_json.dumps({"autoMemoryEnabled": False}))
+
+    assert nm.auto_memory_setting(str(proj)) is False
+    assert nm.is_enabled(str(proj)) is False
+
+
+def test_project_local_overrides_project(monkeypatch, isolate_claude_config_dir, tmp_path):
+    """settings.local.json is the closest scope and wins over settings.json."""
+    _clear_memory_env(monkeypatch)
+    proj = tmp_path / "repo"
+    (proj / ".claude").mkdir(parents=True)
+    (proj / ".claude" / "settings.json").write_text(_json.dumps({"autoMemoryEnabled": False}))
+    (proj / ".claude" / "settings.local.json").write_text(_json.dumps({"autoMemoryEnabled": True}))
+
+    assert nm.auto_memory_setting(str(proj)) is True
+
+
+def test_setting_is_read_from_claude_config_dir(monkeypatch, isolate_claude_config_dir):
+    """CLAUDE_CONFIG_DIR relocates the whole tree; the setting must follow it."""
+    _clear_memory_env(monkeypatch)
+    _write_user_setting(isolate_claude_config_dir, autoMemoryEnabled=False)
+    # The isolated config dir IS the CLAUDE_CONFIG_DIR the fixture set.
+    assert nm.auto_memory_setting() is False
+
+
+def test_corrupt_settings_file_is_ignored(monkeypatch, isolate_claude_config_dir):
+    """A half-written settings.json must not crash the gate — treat as unset."""
+    _clear_memory_env(monkeypatch)
+    (isolate_claude_config_dir / "settings.json").write_text("{not valid json")
+    assert nm.auto_memory_setting() is None
+    assert nm.is_enabled() is True
+
+
+def test_claude_code_simple_disables(monkeypatch, isolate_claude_config_dir):
+    """CLAUDE_CODE_SIMPLE strips the system prompt; auto-memory is off there."""
+    _clear_memory_env(monkeypatch)
+    monkeypatch.setenv("CLAUDE_CODE_SIMPLE", "1")
+    assert nm.is_enabled() is False
+
+
+# ---------------------------------------------------------------------------
 # Path resolution
 # ---------------------------------------------------------------------------
 
