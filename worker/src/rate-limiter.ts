@@ -11,19 +11,40 @@ export const LIMITS = {
   monthly: { maxRequests: 2000, maxBytesIn: 500_000_000, maxBytesOut: 1_000_000_000, ttl: 2678400 },
 } as const;
 
+/**
+ * Memory sync is chattier than file sync by an order of magnitude: one cold pull of a
+ * 40-document store is 40+ requests, and a push touches every changed document. Sharing
+ * the default bucket would reject a first sync partway through, which presents to the
+ * user as the feature being broken rather than as a limit.
+ */
+export const MEMORY_LIMITS = {
+  hourly:  { maxRequests: 600,   maxBytesIn: 20_000_000,  maxBytesOut: 60_000_000,   ttl: 3600 },
+  daily:   { maxRequests: 3000,  maxBytesIn: 100_000_000, maxBytesOut: 200_000_000,  ttl: 86400 },
+  weekly:  { maxRequests: 12000, maxBytesIn: 400_000_000, maxBytesOut: 800_000_000,  ttl: 604800 },
+  monthly: { maxRequests: 40000, maxBytesIn: 1_000_000_000, maxBytesOut: 2_000_000_000, ttl: 2678400 },
+} as const;
+
+export type Bucket = "default" | "memory";
+
+function limitsFor(bucket: Bucket) {
+  return bucket === "memory" ? MEMORY_LIMITS : LIMITS;
+}
+
 type WindowName = keyof typeof LIMITS;
 
-function windowKey(userId: string, window: WindowName): string {
+function windowKey(userId: string, window: WindowName, bucket: Bucket = "default"): string {
   const now = new Date();
+  // The memory bucket counts separately so it cannot starve — or be starved by — file sync.
+  const b = bucket === "memory" ? "mem:" : "";
   switch (window) {
-    case "hourly":  return `rate:${userId}:hour:${now.toISOString().slice(0, 13)}`;
-    case "daily":   return `rate:${userId}:day:${now.toISOString().slice(0, 10)}`;
+    case "hourly":  return `rate:${userId}:${b}hour:${now.toISOString().slice(0, 13)}`;
+    case "daily":   return `rate:${userId}:${b}day:${now.toISOString().slice(0, 10)}`;
     case "weekly": {
       const jan1 = new Date(now.getFullYear(), 0, 1);
       const week = Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-      return `rate:${userId}:week:${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
+      return `rate:${userId}:${b}week:${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
     }
-    case "monthly": return `rate:${userId}:month:${now.toISOString().slice(0, 7)}`;
+    case "monthly": return `rate:${userId}:${b}month:${now.toISOString().slice(0, 7)}`;
   }
 }
 
@@ -57,9 +78,15 @@ function timeUntilReset(window: WindowName): string {
   return `${minutes}m`;
 }
 
-export async function checkRateLimit(userId: string, request: Request, env: Env): Promise<RateResult> {
-  for (const [window, limits] of Object.entries(LIMITS) as [WindowName, typeof LIMITS[WindowName]][]) {
-    const key = windowKey(userId, window);
+export async function checkRateLimit(
+  userId: string,
+  request: Request,
+  env: Env,
+  bucket: Bucket = "default",
+): Promise<RateResult> {
+  const table = limitsFor(bucket);
+  for (const [window, limits] of Object.entries(table) as [WindowName, typeof LIMITS[WindowName]][]) {
+    const key = windowKey(userId, window, bucket);
     const raw = await env.KV.get(key);
     if (!raw) continue;
 
@@ -71,9 +98,16 @@ export async function checkRateLimit(userId: string, request: Request, env: Env)
   return { ok: true };
 }
 
-export async function incrementCounters(userId: string, bytesIn: number, bytesOut: number, env: Env): Promise<void> {
-  for (const [window, limits] of Object.entries(LIMITS) as [WindowName, typeof LIMITS[WindowName]][]) {
-    const key = windowKey(userId, window);
+export async function incrementCounters(
+  userId: string,
+  bytesIn: number,
+  bytesOut: number,
+  env: Env,
+  bucket: Bucket = "default",
+): Promise<void> {
+  const table = limitsFor(bucket);
+  for (const [window, limits] of Object.entries(table) as [WindowName, typeof LIMITS[WindowName]][]) {
+    const key = windowKey(userId, window, bucket);
     const raw = await env.KV.get(key);
     const counters = raw ? JSON.parse(raw) : { req: 0, in: 0, out: 0 };
 

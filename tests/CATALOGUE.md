@@ -284,6 +284,13 @@ Feature: .recallignore
 Feature: Secret scanning before anything leaves the machine
   Scenario: AWS keys, API tokens, GitHub tokens, bearer tokens, connection strings, and private keys are caught
   Scenario: Clean content passes untouched, and an unreadable file is skipped rather than fatal
+
+# test_sync_state.py
+Feature: Optimistic-concurrency sync so two machines cannot silently clobber a shared learning
+  Scenario: A push carries If-Match with the base it edited from, or create-only when it has no base
+  Scenario: A 412 surfaces as a conflict with no base recorded, rather than overwriting the other machine's edit
+  Scenario: A pull records the served content_sha256 as the base for the next push
+  Scenario: A server secret rejection (422) surfaces per file, and only real hex digests ever enter state
 ```
 
 ## @platform — where recall thinks it is, and whether it runs at all

@@ -1,6 +1,9 @@
 export interface Env {
   BUCKET: R2Bucket;
   KV: KVNamespace;
+  // D1, for the memory-store surface. Optional so an unmigrated deployment still boots;
+  // the memory routes return a 500 rather than the whole worker failing.
+  DB: D1Database;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   STRIPE_PRICE_QUARTERLY: string;
@@ -73,9 +76,14 @@ export default {
     }
     const userId = authResult.userId;
 
-    // Rate limit check
+    // Rate limit check.
+    //
+    // Memory routes use their own bucket. A cold sync of a 40-document store is 40+
+    // requests, which the default hourly cap of 30 would reject partway through — the
+    // failure looks like "memory sync just doesn't work" rather than a rate limit.
+    const isMemoryRoute = path.startsWith("/v1/memory_stores");
     const { checkRateLimit } = await import("./rate-limiter");
-    const rateResult = await checkRateLimit(userId, request, env);
+    const rateResult = await checkRateLimit(userId, request, env, isMemoryRoute ? "memory" : "default");
     if (!rateResult.ok) {
       return json({
         error: "rate_limited",
@@ -88,6 +96,10 @@ export default {
     const { handleFiles } = await import("./files");
     const { handleExport } = await import("./export");
 
+    if (path.startsWith("/v1/memory_stores")) {
+      const { handleMemory } = await import("./memory/index");
+      return handleMemory(request, url, userId, env);
+    }
     if (path.startsWith("/v1/files")) {
       return handleFiles(request, url, userId, env);
     }
