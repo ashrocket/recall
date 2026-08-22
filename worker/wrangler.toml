@@ -15,7 +15,7 @@ SITE_URL = "https://recall.raiteri.net"
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "recall-store"
+bucket_name = "agent-recall-store"
 
 [[kv_namespaces]]
 binding = "KV"
